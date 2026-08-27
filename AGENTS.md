@@ -8,15 +8,15 @@ Elixir library that parses USB HID report descriptors (HID 1.11 spec) into struc
 - One module per descriptor item type under `HidParser.ReportDescriptor.*` (e.g. `Input`, `Usage`, `LogicalMaximum`, `Collection`). Item tag/bits are decoded in `report_descriptor.ex`'s `new_item/4`.
 - Struct field convention (verify against `lib/hid_parser/report_descriptor/*.ex` before adding a new item):
   - Global/Local items → `value` (integer)
+  - `Push`/`Pop` → no fields (empty struct; they carry no data)
   - Main items (`Input`/`Output`/`Feature`) → `flags` (integer)
   - `Collection` → `flags`, `items` (list), `end_flags`
   - `Reserved` → `raw` (binary)
-- `parse_items/1` returns a **flat** list. The `parse_collections/1` function that builds the nested collection tree exists but is **private** and not exposed.
+- `parse_items/1` returns a **flat** list. `parse_collections/1` builds the nested collection tree from it; `HidParser.parse_report_descriptor_tree/1` chains both.
 
 ## Gotchas
 
 - Usage tables (`priv/static/HidUsageTables.json`) are parsed at **compile time** into the `@usage_pages` attribute using `HidParser.ReportDescriptor.UsagePageParser` (which uses the native `JSON` module, Elixir 1.18+), exposed via `usage_pages/0`.
-- `parse_collections/1` (builds the nested collection tree) and `parse_collections/2` are private/unused, so compilation emits an "unused function" warning — expected.
 
 ## Toolchain
 
@@ -26,6 +26,11 @@ Elixir library that parses USB HID report descriptors (HID 1.11 spec) into struc
 ## Conventions
 
 - Commit messages follow the [Conventional Commits](https://www.conventionalcommits.org/) format (e.g. `feat:`, `fix:`, `refactor:`, `chore:`).
+
+## Guidelines
+
+- Test-first (TDD): write the failing test before the implementation, run it to confirm it fails, then write code until it passes.
+- Document *why*, not *how*: `@doc`/`@moduledoc` should capture the reasoning and spec references behind a decision — the *how* is readable from the code, the *why* is not.
 
 ## Commands
 

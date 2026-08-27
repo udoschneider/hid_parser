@@ -1,11 +1,9 @@
 defmodule HidParser.ReportDescriptor.Pop do
   # Global
 
-  @type t :: %__MODULE__{value: integer()}
+  @type t :: %__MODULE__{}
 
-  defstruct value: 0
+  defstruct []
 
-  def new(data) when is_binary(data) do
-    %__MODULE__{value: HidParser.Helper.parse_main_flags(data)}
-  end
+  def new(data) when is_binary(data), do: %__MODULE__{}
 end

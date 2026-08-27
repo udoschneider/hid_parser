@@ -96,11 +96,11 @@ defmodule HidParser.ReportDescriptorTest do
     end
 
     test "push" do
-      assert HidParser.parse_report_descriptor(<<0xA5, 0x01>>) == [%Push{value: 1}]
+      assert HidParser.parse_report_descriptor(<<0xA4>>) == [%Push{}]
     end
 
     test "pop" do
-      assert HidParser.parse_report_descriptor(<<0xB5, 0x01>>) == [%Pop{value: 1}]
+      assert HidParser.parse_report_descriptor(<<0xB4>>) == [%Pop{}]
     end
 
     test "reserved" do
