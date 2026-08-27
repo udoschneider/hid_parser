@@ -140,7 +140,7 @@ defmodule HidParser.ReportDescriptorTest do
 
     test "multi-byte negative logical minimum" do
       assert HidParser.parse_report_descriptor(<<0x16, 0x00, 0x80>>) == [
-               %LogicalMinimum{value: -32768}
+               %LogicalMinimum{value: -32_768}
              ]
     end
 

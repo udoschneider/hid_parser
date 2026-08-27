@@ -83,7 +83,7 @@ defmodule HidParser.ReportDescriptor.Helper do
   Decodes a data field as a two's complement signed integer.
 
   Used for signed global items such as Logical Minimum/Maximum
-  (HID/6.2.2.4).
+  (HID/6.2.2.7).
 
   ## Examples
 

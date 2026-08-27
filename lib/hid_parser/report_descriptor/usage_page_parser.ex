@@ -1,8 +1,15 @@
 defmodule HidParser.ReportDescriptor.UsagePageParser do
-  # Parses the HID Usage Tables JSON into a lookup map. The JSON is fetched at
-  # build time by Mix.Tasks.HidParser.FetchUsageTables (see that module for
-  # provenance) and read lazily by HidParser.ReportDescriptor.usage_pages/0.
+  @moduledoc """
+  Parses the HID Usage Tables JSON into a lookup map.
 
+  The JSON is fetched at build time by `Mix.Tasks.HidParser.FetchUsageTables`
+  (see that module for provenance) and read lazily by
+  `HidParser.ReportDescriptor.usage_pages/0`.
+  """
+
+  @doc """
+  Parses the usage tables JSON file at `path` into `%{page_id => page}`.
+  """
   def parse(path) do
     path
     |> File.read!()

@@ -27,6 +27,9 @@ defmodule HidParser.ReportDescriptor.Item do
 
           defstruct value: 0
 
+          @doc """
+          Builds a struct from the item's raw data bytes.
+          """
           def new(data) when is_binary(data) do
             %__MODULE__{
               value: apply(HidParser.ReportDescriptor.Helper, unquote(decoder), [data])
@@ -40,6 +43,9 @@ defmodule HidParser.ReportDescriptor.Item do
 
           defstruct flags: 0
 
+          @doc """
+          Builds a struct from the item's raw data bytes.
+          """
           def new(data) when is_binary(data) do
             %__MODULE__{
               flags: apply(HidParser.ReportDescriptor.Helper, unquote(decoder), [data])
