@@ -1,7 +1,7 @@
-defmodule HidParser.HelperTest do
+defmodule HidParser.ReportDescriptor.HelperTest do
   use ExUnit.Case
-  alias HidParser.Helper
-  doctest HidParser.Helper
+  alias HidParser.ReportDescriptor.Helper
+  doctest HidParser.ReportDescriptor.Helper
 
   describe "shortsize_expand" do
     test "raises on invalid size" do

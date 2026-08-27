@@ -6,6 +6,6 @@ defmodule HidParser.ReportDescriptor.PhysicalMinimum do
   defstruct value: 0
 
   def new(data) when is_binary(data) do
-    %__MODULE__{value: HidParser.Helper.parse_signed(data)}
+    %__MODULE__{value: HidParser.ReportDescriptor.Helper.parse_signed(data)}
   end
 end

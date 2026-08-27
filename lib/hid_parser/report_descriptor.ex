@@ -3,7 +3,7 @@ defmodule HidParser.ReportDescriptor do
   `HidParser` parses a binary into a list of report descriptor items.
   """
 
-  alias HidParser.Helper
+  alias HidParser.ReportDescriptor.Helper
 
   # Implement ReportDesriptor parsing à la
 

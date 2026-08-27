@@ -1,4 +1,4 @@
-defmodule HidParser.Helper do
+defmodule HidParser.ReportDescriptor.Helper do
   @moduledoc """
   This module contains several helper function for HID Descriptor parsing.
   """
@@ -17,13 +17,13 @@ defmodule HidParser.Helper do
 
   ## Examples
 
-      iex> HidParser.Helper.shortsize_expand(0)
+      iex> HidParser.ReportDescriptor.Helper.shortsize_expand(0)
       0
-      iex> HidParser.Helper.shortsize_expand(1)
+      iex> HidParser.ReportDescriptor.Helper.shortsize_expand(1)
       1
-      iex> HidParser.Helper.shortsize_expand(2)
+      iex> HidParser.ReportDescriptor.Helper.shortsize_expand(2)
       2
-      iex> HidParser.Helper.shortsize_expand(3)
+      iex> HidParser.ReportDescriptor.Helper.shortsize_expand(3)
       4
   """
   @spec shortsize_expand(bSize :: integer()) :: integer()
@@ -39,13 +39,13 @@ defmodule HidParser.Helper do
 
   See HID/6.2.2.2 for more details.
 
-      iex> HidParser.Helper.shortsize_compress(0)
+      iex> HidParser.ReportDescriptor.Helper.shortsize_compress(0)
       0
-      iex> HidParser.Helper.shortsize_compress(1)
+      iex> HidParser.ReportDescriptor.Helper.shortsize_compress(1)
       1
-      iex> HidParser.Helper.shortsize_compress(2)
+      iex> HidParser.ReportDescriptor.Helper.shortsize_compress(2)
       2
-      iex> HidParser.Helper.shortsize_compress(4)
+      iex> HidParser.ReportDescriptor.Helper.shortsize_compress(4)
       3
 
   """
@@ -66,11 +66,11 @@ defmodule HidParser.Helper do
 
   ## Examples
 
-      iex> HidParser.Helper.parse_unsigned(<<>>)
+      iex> HidParser.ReportDescriptor.Helper.parse_unsigned(<<>>)
       0
-      iex> HidParser.Helper.parse_unsigned(<<0x01>>)
+      iex> HidParser.ReportDescriptor.Helper.parse_unsigned(<<0x01>>)
       1
-      iex> HidParser.Helper.parse_unsigned(<<0x10, 0x02>>)
+      iex> HidParser.ReportDescriptor.Helper.parse_unsigned(<<0x10, 0x02>>)
       0x0210
   """
   @spec parse_unsigned(binary()) :: non_neg_integer()
@@ -87,15 +87,15 @@ defmodule HidParser.Helper do
 
   ## Examples
 
-      iex> HidParser.Helper.parse_signed(<<>>)
+      iex> HidParser.ReportDescriptor.Helper.parse_signed(<<>>)
       0
-      iex> HidParser.Helper.parse_signed(<<0x7F>>)
+      iex> HidParser.ReportDescriptor.Helper.parse_signed(<<0x7F>>)
       127
-      iex> HidParser.Helper.parse_signed(<<0x80>>)
+      iex> HidParser.ReportDescriptor.Helper.parse_signed(<<0x80>>)
       -128
-      iex> HidParser.Helper.parse_signed(<<0xFB>>)
+      iex> HidParser.ReportDescriptor.Helper.parse_signed(<<0xFB>>)
       -5
-      iex> HidParser.Helper.parse_signed(<<0x00, 0x80>>)
+      iex> HidParser.ReportDescriptor.Helper.parse_signed(<<0x00, 0x80>>)
       -32768
   """
   @spec parse_signed(binary()) :: integer()
@@ -110,9 +110,9 @@ defmodule HidParser.Helper do
 
   ## Examples
 
-      iex> HidParser.Helper.parse_unit_exponent(<<0x01>>)
+      iex> HidParser.ReportDescriptor.Helper.parse_unit_exponent(<<0x01>>)
       1
-      iex> HidParser.Helper.parse_unit_exponent(<<0x0B>>)
+      iex> HidParser.ReportDescriptor.Helper.parse_unit_exponent(<<0x0B>>)
       -5
   """
   @spec parse_unit_exponent(binary()) :: integer()

@@ -6,6 +6,6 @@ defmodule HidParser.ReportDescriptor.UsagePage do
   defstruct value: 0
 
   def new(data) when is_binary(data) do
-    %__MODULE__{value: HidParser.Helper.parse_unsigned(data)}
+    %__MODULE__{value: HidParser.ReportDescriptor.Helper.parse_unsigned(data)}
   end
 end
