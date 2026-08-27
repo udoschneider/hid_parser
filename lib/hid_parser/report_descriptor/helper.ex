@@ -58,7 +58,46 @@ defmodule HidParser.Helper do
   def shortsize_compress(_), do: raise(ArgumentError, message: "invalid size")
 
   def parse_main_flags(<<>>), do: 0
-  def parse_main_flags(<<flags::integer-size(8)>>), do: flags
-  def parse_main_flags(<<flags::integer-size(16)>>), do: flags
-  def parse_main_flags(<<flags::integer-size(32)>>), do: flags
+  def parse_main_flags(<<flags::little-integer-size(8)>>), do: flags
+  def parse_main_flags(<<flags::little-integer-size(16)>>), do: flags
+  def parse_main_flags(<<flags::little-integer-size(32)>>), do: flags
+
+  @doc """
+  Decodes a data field as a two's complement signed integer.
+
+  Used for signed global items such as Logical Minimum/Maximum
+  (HID/6.2.2.4).
+
+  ## Examples
+
+      iex> HidParser.Helper.parse_signed(<<>>)
+      0
+      iex> HidParser.Helper.parse_signed(<<0x7F>>)
+      127
+      iex> HidParser.Helper.parse_signed(<<0x80>>)
+      -128
+      iex> HidParser.Helper.parse_signed(<<0xFB>>)
+      -5
+      iex> HidParser.Helper.parse_signed(<<0x00, 0x80>>)
+      -32768
+  """
+  @spec parse_signed(binary()) :: integer()
+  def parse_signed(<<>>), do: 0
+  def parse_signed(<<value::little-signed-integer-size(8)>>), do: value
+  def parse_signed(<<value::little-signed-integer-size(16)>>), do: value
+  def parse_signed(<<value::little-signed-integer-size(32)>>), do: value
+
+  @doc """
+  Decodes a Unit Exponent data field (HID/6.2.2.7): a signed 4-bit value in
+  the low nibble of the byte.
+
+  ## Examples
+
+      iex> HidParser.Helper.parse_unit_exponent(<<0x01>>)
+      1
+      iex> HidParser.Helper.parse_unit_exponent(<<0x0B>>)
+      -5
+  """
+  @spec parse_unit_exponent(binary()) :: integer()
+  def parse_unit_exponent(<<_reserved::4, value::signed-integer-size(4)>>), do: value
 end

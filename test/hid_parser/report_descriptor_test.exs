@@ -110,6 +110,34 @@ defmodule HidParser.ReportDescriptorTest do
     end
   end
 
+  describe "Report signed global items" do
+    test "negative logical minimum" do
+      assert HidParser.parse_report_descriptor(<<0x15, 0xFB>>) == [%LogicalMinimum{value: -5}]
+    end
+
+    test "multi-byte negative logical minimum" do
+      assert HidParser.parse_report_descriptor(<<0x16, 0x00, 0x80>>) == [
+               %LogicalMinimum{value: -32768}
+             ]
+    end
+
+    test "negative logical maximum" do
+      assert HidParser.parse_report_descriptor(<<0x25, 0xFF>>) == [%LogicalMaximum{value: -1}]
+    end
+
+    test "negative physical minimum" do
+      assert HidParser.parse_report_descriptor(<<0x35, 0x80>>) == [%PhysicalMinimum{value: -128}]
+    end
+
+    test "negative physical maximum" do
+      assert HidParser.parse_report_descriptor(<<0x45, 0x80>>) == [%PhysicalMaximum{value: -128}]
+    end
+
+    test "negative unit exponent" do
+      assert HidParser.parse_report_descriptor(<<0x55, 0x0B>>) == [%UnitExponent{value: -5}]
+    end
+  end
+
   describe "Report local items" do
     test "usage" do
       assert HidParser.parse_report_descriptor(<<0x09, 0x01>>) == [%Usage{value: 1}]

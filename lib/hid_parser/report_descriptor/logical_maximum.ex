@@ -6,6 +6,6 @@ defmodule HidParser.ReportDescriptor.LogicalMaximum do
   defstruct value: 0
 
   def new(data) when is_binary(data) do
-    %__MODULE__{value: HidParser.Helper.parse_main_flags(data)}
+    %__MODULE__{value: HidParser.Helper.parse_signed(data)}
   end
 end
