@@ -60,20 +60,36 @@ defmodule HidParser.ReportDescriptor do
     parse_items(rest, [item | acc])
   end
 
-  defp parse_collections(items), do: parse_collections(items, [[]])
+  @doc """
+  Builds the nested collection tree from a flat list of items.
 
-  defp parse_collections([%Collection{} = col | items], [top | stack]),
-    do: parse_collections(items, [[] | [[col | top] | stack]])
+  Each `Collection` accumulates its child items into `items` and records the
+  matching `EndCollection` flags in `end_flags`.
 
-  defp parse_collections([%EndCollection{} = end_col | items], [children | [[col | rest]]]) do
-    col = %{col | items: Enum.reverse(children), end_flags: end_col.flags}
-    parse_collections(items, [col | rest])
+  ## Examples
+
+      iex> HidParser.ReportDescriptor.parse_collections([
+      ...>   %HidParser.ReportDescriptor.Collection{flags: 1},
+      ...>   %HidParser.ReportDescriptor.EndCollection{flags: 0}
+      ...> ])
+      [%HidParser.ReportDescriptor.Collection{flags: 1, items: [], end_flags: 0}]
+  """
+  def parse_collections(items) when is_list(items) do
+    {acc, _end_flags, []} = parse_nodes(items, [])
+    Enum.reverse(acc)
   end
 
-  defp parse_collections([item | items], [top | stack]),
-    do: parse_collections(items, [[item | top] | stack])
+  defp parse_nodes([], acc), do: {acc, nil, []}
 
-  defp parse_collections([], acc), do: Enum.reverse(acc)
+  defp parse_nodes([%EndCollection{flags: flags} | rest], acc), do: {acc, flags, rest}
+
+  defp parse_nodes([%Collection{} = col | rest], acc) do
+    {children, end_flags, remaining} = parse_nodes(rest, [])
+    col = %{col | items: Enum.reverse(children), end_flags: end_flags || 0}
+    parse_nodes(remaining, [col | acc])
+  end
+
+  defp parse_nodes([item | rest], acc), do: parse_nodes(rest, [item | acc])
 
   defp new_item(0b00, 0b1000, data, _raw), do: Input.new(data)
   defp new_item(0b00, 0b1001, data, _raw), do: Output.new(data)

@@ -185,4 +185,76 @@ defmodule HidParser.ReportDescriptorTest do
              ]
     end
   end
+
+  describe "collection tree" do
+    test "single collection" do
+      tree =
+        HidParser.parse_report_descriptor_tree(<<
+          0xA1,
+          0x01,
+          0x05,
+          0x01,
+          0xC0
+        >>)
+
+      assert tree == [
+               %Collection{
+                 flags: 1,
+                 items: [%UsagePage{value: 1}],
+                 end_flags: 0
+               }
+             ]
+    end
+
+    test "nested collections" do
+      tree =
+        HidParser.parse_report_descriptor_tree(<<
+          0xA1,
+          0x01,
+          0xA1,
+          0x02,
+          0x05,
+          0x01,
+          0xC0,
+          0xC0
+        >>)
+
+      assert tree == [
+               %Collection{
+                 flags: 1,
+                 items: [
+                   %Collection{
+                     flags: 2,
+                     items: [%UsagePage{value: 1}],
+                     end_flags: 0
+                   }
+                 ],
+                 end_flags: 0
+               }
+             ]
+    end
+
+    test "sibling collections" do
+      tree =
+        HidParser.parse_report_descriptor_tree(<<
+          0xA1,
+          0x01,
+          0xC0,
+          0xA1,
+          0x02,
+          0xC0
+        >>)
+
+      assert tree == [
+               %Collection{flags: 1, items: [], end_flags: 0},
+               %Collection{flags: 2, items: [], end_flags: 0}
+             ]
+    end
+
+    test "collection end flags are recorded" do
+      tree = HidParser.parse_report_descriptor_tree(<<0xA1, 0x01, 0xC0>>)
+
+      assert tree == [%Collection{flags: 1, items: [], end_flags: 0}]
+    end
+  end
 end
