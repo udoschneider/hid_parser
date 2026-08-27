@@ -11,6 +11,18 @@ https://github.com/DIGImend/usbhid-dump
 # HID Parse
 https://github.com/DIGImend/hidrd
 
+# Usage Tables JSON
+
+USB-IF publishes the HID Usage Tables only as a PDF (`hut1_*.pdf`) with the JSON
+embedded as an attachment — there is no standalone JSON download URL. We mirror
+the extracted JSON from a pinned commit of `microsoft/mu_rust_hid` (an unmodified
+copy of the official file) instead of extracting it from the PDF at build time:
+
+https://github.com/microsoft/mu_rust_hid/blob/23283fc00647cbf204fc72d5bc83a837cf58c42c/examples/resources/HidUsageTables.json
+
+It is fetched into `priv/static/HidUsageTables.json` by
+`Mix.Tasks.HidParser.FetchUsageTables` (wired into `mix compile` via an alias).
+
 # Scripts
 ```
 sudo usbhid-dump -d 046a:00b0 -i 0 \

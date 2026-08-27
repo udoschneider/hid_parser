@@ -16,7 +16,7 @@ Elixir library that parses USB HID report descriptors (HID 1.11 spec) into struc
 
 ## Gotchas
 
-- Usage tables (`priv/static/HidUsageTables.json`) are parsed at **compile time** into the `@usage_pages` attribute using `HidParser.ReportDescriptor.UsagePageParser` (which uses the native `JSON` module, Elixir 1.18+), exposed via `usage_pages/0`.
+- Usage tables (`priv/static/HidUsageTables.json`) are **fetched at build time** by `Mix.Tasks.HidParser.FetchUsageTables` (wired into `mix compile` via an alias) and parsed **lazily** on the first `usage_pages/0` call, cached in `:persistent_term`. The JSON is not vendored in git.
 
 ## Toolchain
 

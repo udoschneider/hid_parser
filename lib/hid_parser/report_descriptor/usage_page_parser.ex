@@ -1,5 +1,7 @@
 defmodule HidParser.ReportDescriptor.UsagePageParser do
-  # Parse the JSON file extracted from https://usb.org/document-library/hid-usage-tables-14 into something more usable
+  # Parses the HID Usage Tables JSON into a lookup map. The JSON is fetched at
+  # build time by Mix.Tasks.HidParser.FetchUsageTables (see that module for
+  # provenance) and read lazily by HidParser.ReportDescriptor.usage_pages/0.
 
   def parse(path) do
     path

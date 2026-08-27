@@ -7,7 +7,8 @@ defmodule HidParser.MixProject do
       version: "0.1.0",
       elixir: "~> 1.20",
       start_permanent: Mix.env() == :prod,
-      deps: deps()
+      deps: deps(),
+      aliases: [compile: ["hid_parser.fetch_usage_tables", "compile"]]
     ]
   end
 

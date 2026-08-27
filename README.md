@@ -35,7 +35,8 @@ Each item is a struct named after the HID 1.11 item it represents (see
 `Feature`) carry their bit flags in a `flags` field; global and local items carry
 a signed `value`; `Collection` records its child `items` and `end_flags`.
 
-The HID usage tables are parsed at compile time and exposed via:
+The HID usage tables are fetched at build time (into `priv/static/HidUsageTables.json`)
+and parsed lazily on first call, then exposed via:
 
 ```elixir
 iex> HidParser.ReportDescriptor.usage_pages()
