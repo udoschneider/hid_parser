@@ -40,10 +40,27 @@ defmodule HidParser.ReportDescriptor do
     Delimiter
   }
 
-  @usage_pages Application.app_dir(:hid_parser, "priv/static/HidUsageTables.json")
-               |> HidParser.ReportDescriptor.UsagePageParser.parse()
+  @usage_pages_file "priv/static/HidUsageTables.json"
 
-  def usage_pages(), do: @usage_pages
+  @doc """
+  Returns the HID usage tables, parsed from `priv/static/HidUsageTables.json`.
+
+  Parsed lazily on first call and cached in `:persistent_term`, so the JSON is
+  only read (and decoded) when it is actually needed, and never during
+  compilation.
+  """
+  def usage_pages() do
+    :persistent_term.get({__MODULE__, :usage_pages}, nil) || load_usage_pages()
+  end
+
+  defp load_usage_pages() do
+    pages =
+      Application.app_dir(:hid_parser, @usage_pages_file)
+      |> HidParser.ReportDescriptor.UsagePageParser.parse()
+
+    :persistent_term.put({__MODULE__, :usage_pages}, pages)
+    pages
+  end
 
   def parse_items(binary) when is_binary(binary) do
     binary |> parse_items([])

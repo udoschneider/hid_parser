@@ -32,6 +32,10 @@ defmodule HidParser.ReportDescriptorTest do
 
   doctest HidParser
 
+  test "usage pages" do
+    assert %{1 => %{name: "Generic Desktop"}} = HidParser.ReportDescriptor.usage_pages()
+  end
+
   test "parse binary only" do
     assert_raise(FunctionClauseError, fn -> HidParser.parse_report_descriptor(:foo) end)
   end
