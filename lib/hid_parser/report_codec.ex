@@ -372,9 +372,12 @@ defmodule HidParser.ReportCodec do
     do: {:error, Error.exception(reason: :empty_report)}
 
   def decode(%__MODULE__{uses_report_id?: false} = codec, data, type) when is_binary(data) do
-    case Enum.filter(Map.keys(codec.reports), fn {t, _id} -> t == type end) do
-      [{^type, id}] -> decode_report(codec, {type, id}, data)
-      [] -> {:error, Error.exception(reason: :no_reports)}
+    # Without report ids the `report_id` global stays 0 (a declared `ReportId 0`
+    # is treated as "no report id"), so there is exactly one `{type, 0}` per
+    # stream. A direct lookup avoids a `CaseClauseError` on an unexpected key set.
+    case Map.fetch(codec.reports, {type, 0}) do
+      {:ok, _fields} -> decode_report(codec, {type, 0}, data)
+      :error -> {:error, Error.exception(reason: :no_reports)}
     end
   end
 

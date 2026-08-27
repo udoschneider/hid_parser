@@ -1002,8 +1002,16 @@ defmodule HidParser.ReportTest do
     end
 
     test "array element usage is its value" do
-      field = %Field{usage_page: 7, usages: [0], flags: %{variable: false}}
+      field = %Field{usage_page: 7, usages: Enum.to_list(0..0x65), flags: %{variable: false}}
       value = %Value{field: field, index: 0, logical: 0x04}
+
+      assert Value.usage(value) == {7, 0x04}
+      assert Value.name(value) == "Keyboard A"
+    end
+
+    test "array field with a single Usage applies it to every element" do
+      field = %Field{usage_page: 7, usages: [0x04], flags: %{variable: false}}
+      value = %Value{field: field, index: 0, logical: 0}
 
       assert Value.usage(value) == {7, 0x04}
       assert Value.name(value) == "Keyboard A"

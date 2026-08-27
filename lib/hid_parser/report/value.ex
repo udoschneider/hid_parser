@@ -93,7 +93,11 @@ defmodule HidParser.Report.Value do
     end
   end
 
-  # An array element's value *is* the usage id it selects.
+  # An array element's report value *is* the usage id it selects from the
+  # declared range (HID 1.11 §6.2.2.8). A single `Usage` item, though, applies
+  # one fixed id to every element — exactly as it does for a variable field.
+  defp element_usage_id(%Field{usages: [single]}, _index, _logical), do: single
+
   defp element_usage_id(%Field{}, _index, logical), do: logical
 
   defp usage_label(page, nil), do: "0x" <> hex(page) <> ":unknown"
