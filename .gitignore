@@ -25,6 +25,9 @@ hid_parser-*.tar
 # Fetched at compile time by Mix.Tasks.Compile.UsageTables.
 /priv/static/HidUsageTables.json
 
+# Fetched at test time by Mix.Tasks.HidParser.FetchFixtures (hid-tools, GPL-2.0).
+/test/fixtures/
+
 
 # Temporary files for e.g. tests
 /tmp
