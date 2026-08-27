@@ -1,6 +1,6 @@
 defmodule HidParser.ReportDescriptorTest do
   use ExUnit.Case
-  alias HidParser.ReportDescriptor.{Output, Feature, Collection, EndCollection}
+  alias HidParser.ReportDescriptor.{Output, Feature, Collection, EndCollection, LongItem}
 
   alias HidParser.ReportDescriptor.{
     UsagePage,
@@ -205,6 +205,27 @@ defmodule HidParser.ReportDescriptorTest do
     test "reserved" do
       assert HidParser.parse_report_descriptor(<<0xB9, 0x01>>) == [
                %HidParser.ReportDescriptor.Reserved{raw: <<0xB9, 0x01>>}
+             ]
+    end
+  end
+
+  describe "long items" do
+    test "long item" do
+      assert HidParser.parse_report_descriptor(<<0xFF, 0x01, 0x01, 0xAA>>) == [
+               %LongItem{tag: 1, data: <<0xAA>>}
+             ]
+    end
+
+    test "long item with no data" do
+      assert HidParser.parse_report_descriptor(<<0xFF, 0x01, 0x00>>) == [
+               %LongItem{tag: 1, data: <<>>}
+             ]
+    end
+
+    test "long item followed by a short item" do
+      assert HidParser.parse_report_descriptor(<<0xFF, 0x01, 0x01, 0xAA, 0xC0>>) == [
+               %LongItem{tag: 1, data: <<0xAA>>},
+               %EndCollection{flags: 0}
              ]
     end
   end

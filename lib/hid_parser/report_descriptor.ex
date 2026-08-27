@@ -10,6 +10,8 @@ defmodule HidParser.ReportDescriptor do
   # Main Items
   alias HidParser.ReportDescriptor.{Input, Output, Feature, Collection, EndCollection, Reserved}
 
+  alias HidParser.ReportDescriptor.LongItem
+
   # Global Items
   alias HidParser.ReportDescriptor.{
     UsagePage,
@@ -102,6 +104,12 @@ defmodule HidParser.ReportDescriptor do
   end
 
   defp parse_items(<<>>, acc), do: Enum.reverse(acc)
+
+  # Long item (HID 1.11 §6.2.2.3): 0xFF prefix, then an 8-bit tag and 8-bit data size.
+  defp parse_items(<<0xFF, tag::8, data_size::8, bytes::binary>>, acc) do
+    <<data::binary-size(^data_size), rest::binary>> = bytes
+    parse_items(rest, [LongItem.new(tag, data) | acc])
+  end
 
   # credo:disable-for-next-line Credo.Check.Readability.VariableNames
   defp parse_items(<<bTag::4, bType::2, bSize::2, bytes::binary>>, acc) do
