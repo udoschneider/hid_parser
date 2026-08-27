@@ -1,11 +1,4 @@
 defmodule HidParser.ReportDescriptor.Usage do
   # Local
-
-  @type t :: %__MODULE__{value: integer()}
-
-  defstruct value: 0
-
-  def new(data) when is_binary(data) do
-    %__MODULE__{value: HidParser.ReportDescriptor.Helper.parse_unsigned(data)}
-  end
+  use HidParser.ReportDescriptor.Item
 end
