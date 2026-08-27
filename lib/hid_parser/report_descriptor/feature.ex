@@ -6,6 +6,6 @@ defmodule HidParser.ReportDescriptor.Feature do
   defstruct flags: 0
 
   def new(data) when is_binary(data) do
-    %__MODULE__{flags: HidParser.Helper.parse_main_flags(data)}
+    %__MODULE__{flags: HidParser.Helper.parse_unsigned(data)}
   end
 end

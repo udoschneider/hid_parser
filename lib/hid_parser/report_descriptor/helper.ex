@@ -57,10 +57,27 @@ defmodule HidParser.Helper do
   def shortsize_compress(4), do: 3
   def shortsize_compress(_), do: raise(ArgumentError, message: "invalid size")
 
-  def parse_main_flags(<<>>), do: 0
-  def parse_main_flags(<<flags::little-integer-size(8)>>), do: flags
-  def parse_main_flags(<<flags::little-integer-size(16)>>), do: flags
-  def parse_main_flags(<<flags::little-integer-size(32)>>), do: flags
+  @doc """
+  Decodes an item's raw data field as an unsigned little-endian integer.
+
+  Used both for main-item flags (`Input`/`Output`/`Feature`/`Collection`) and
+  for unsigned global/local values such as `UsagePage`, `ReportId` or `Usage`.
+  Multi-byte values are little-endian per the HID spec (HID/6.2.2).
+
+  ## Examples
+
+      iex> HidParser.Helper.parse_unsigned(<<>>)
+      0
+      iex> HidParser.Helper.parse_unsigned(<<0x01>>)
+      1
+      iex> HidParser.Helper.parse_unsigned(<<0x10, 0x02>>)
+      0x0210
+  """
+  @spec parse_unsigned(binary()) :: non_neg_integer()
+  def parse_unsigned(<<>>), do: 0
+  def parse_unsigned(<<flags::little-integer-size(8)>>), do: flags
+  def parse_unsigned(<<flags::little-integer-size(16)>>), do: flags
+  def parse_unsigned(<<flags::little-integer-size(32)>>), do: flags
 
   @doc """
   Decodes a data field as a two's complement signed integer.
