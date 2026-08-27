@@ -1,6 +1,8 @@
 defmodule HidParser.ReportDescriptorTest do
   use ExUnit.Case
-  alias HidParser.ReportDescriptor.{Output, Feature, Collection, EndCollection, LongItem}
+
+  alias HidParser.ReportDescriptor
+  alias HidParser.ReportDescriptor.{Output, Feature, Collection, LongItem}
 
   alias HidParser.ReportDescriptor.{
     UsagePage,
@@ -30,218 +32,204 @@ defmodule HidParser.ReportDescriptorTest do
     Delimiter
   }
 
-  doctest HidParser
   doctest HidParser.ReportDescriptor
 
+  defp items(binary) do
+    {:ok, %ReportDescriptor{items: items}} = ReportDescriptor.parse(binary)
+    items
+  end
+
   test "usage pages" do
-    assert %{1 => %{name: "Generic Desktop"}} = HidParser.ReportDescriptor.usage_pages()
+    assert %{1 => %{name: "Generic Desktop"}} = ReportDescriptor.usage_pages()
   end
 
   describe "usage lookup" do
     test "usage page name" do
-      assert HidParser.ReportDescriptor.usage_page_name(1) == "Generic Desktop"
+      assert ReportDescriptor.usage_page_name(1) == "Generic Desktop"
     end
 
     test "usage name" do
-      assert HidParser.ReportDescriptor.usage_name(1, 6) == "Keyboard"
+      assert ReportDescriptor.usage_name(1, 6) == "Keyboard"
     end
 
     test "missing usage page" do
-      assert HidParser.ReportDescriptor.usage_page_name(0xFFFF) == nil
+      assert ReportDescriptor.usage_page_name(0xFFFF) == nil
     end
 
     test "missing usage" do
-      assert HidParser.ReportDescriptor.usage_name(1, 0xFFFF) == nil
+      assert ReportDescriptor.usage_name(1, 0xFFFF) == nil
     end
   end
 
-  test "parse binary only" do
-    assert_raise(FunctionClauseError, fn -> HidParser.parse_report_descriptor(:foo) end)
+  test "parse non-binary" do
+    assert_raise(FunctionClauseError, fn -> ReportDescriptor.parse(:foo) end)
+  end
+
+  test "parse malformed descriptor" do
+    assert ReportDescriptor.parse(<<0x05>>) ==
+             {:error, %HidParser.Error{reason: :invalid_descriptor}}
   end
 
   describe "Report main items" do
     test "output" do
-      assert HidParser.parse_report_descriptor(<<0b1001_00_01, 0x01>>) == [%Output{flags: 1}]
+      assert items(<<0b1001_00_01, 0x01>>) == [%Output{flags: 1}]
     end
 
     test "feature" do
-      assert HidParser.parse_report_descriptor(<<0b1011_00_01, 0x02>>) == [%Feature{flags: 2}]
+      assert items(<<0b1011_00_01, 0x02>>) == [%Feature{flags: 2}]
     end
 
     test "collection" do
-      assert HidParser.parse_report_descriptor(<<0b1010_00_01, 0x03>>) == [%Collection{flags: 3}]
-    end
-
-    test "end collection" do
-      assert HidParser.parse_report_descriptor(<<0b1100_00_00>>) == [%EndCollection{flags: 0}]
+      assert items(<<0b1010_00_01, 0x03>>) == [%Collection{flags: 3, items: [], end_flags: 0}]
     end
   end
 
   describe "Report global items" do
     test "usage page" do
-      assert HidParser.parse_report_descriptor(<<0x05, 0x01>>) == [%UsagePage{value: 1}]
+      assert items(<<0x05, 0x01>>) == [%UsagePage{value: 1}]
     end
 
     test "logical minimum" do
-      assert HidParser.parse_report_descriptor(<<0x15, 0x00>>) == [%LogicalMinimum{value: 0}]
+      assert items(<<0x15, 0x00>>) == [%LogicalMinimum{value: 0}]
     end
 
     test "logical maximum" do
-      assert HidParser.parse_report_descriptor(<<0x25, 0x01>>) == [%LogicalMaximum{value: 1}]
+      assert items(<<0x25, 0x01>>) == [%LogicalMaximum{value: 1}]
     end
 
     test "physical minimum" do
-      assert HidParser.parse_report_descriptor(<<0x35, 0x00>>) == [%PhysicalMinimum{value: 0}]
+      assert items(<<0x35, 0x00>>) == [%PhysicalMinimum{value: 0}]
     end
 
     test "physical maximum" do
-      assert HidParser.parse_report_descriptor(<<0x45, 0x01>>) == [%PhysicalMaximum{value: 1}]
+      assert items(<<0x45, 0x01>>) == [%PhysicalMaximum{value: 1}]
     end
 
     test "unit exponent" do
-      assert HidParser.parse_report_descriptor(<<0x55, 0x01>>) == [%UnitExponent{value: 1}]
+      assert items(<<0x55, 0x01>>) == [%UnitExponent{value: 1}]
     end
 
     test "unit" do
-      assert HidParser.parse_report_descriptor(<<0x65, 0x01>>) == [%Unit{value: 1}]
+      assert items(<<0x65, 0x01>>) == [%Unit{value: 1}]
     end
 
     test "report size" do
-      assert HidParser.parse_report_descriptor(<<0x75, 0x01>>) == [%ReportSize{value: 1}]
+      assert items(<<0x75, 0x01>>) == [%ReportSize{value: 1}]
     end
 
     test "report ID" do
-      assert HidParser.parse_report_descriptor(<<0x85, 0x01>>) == [%ReportId{value: 1}]
+      assert items(<<0x85, 0x01>>) == [%ReportId{value: 1}]
     end
 
     test "report count" do
-      assert HidParser.parse_report_descriptor(<<0x95, 0x01>>) == [%ReportCount{value: 1}]
+      assert items(<<0x95, 0x01>>) == [%ReportCount{value: 1}]
     end
 
     test "push" do
-      assert HidParser.parse_report_descriptor(<<0xA4>>) == [%Push{}]
+      assert items(<<0xA4>>) == [%Push{}]
     end
 
     test "pop" do
-      assert HidParser.parse_report_descriptor(<<0xB4>>) == [%Pop{}]
+      assert items(<<0xB4>>) == [%Pop{}]
     end
 
     test "reserved" do
-      assert HidParser.parse_report_descriptor(<<0xC5, 0x01>>) == [
-               %HidParser.ReportDescriptor.Reserved{raw: <<0xC5, 0x01>>}
-             ]
+      assert items(<<0xC5, 0x01>>) == [%HidParser.ReportDescriptor.Reserved{raw: <<0xC5, 0x01>>}]
     end
   end
 
   describe "Report signed global items" do
     test "negative logical minimum" do
-      assert HidParser.parse_report_descriptor(<<0x15, 0xFB>>) == [%LogicalMinimum{value: -5}]
+      assert items(<<0x15, 0xFB>>) == [%LogicalMinimum{value: -5}]
     end
 
     test "multi-byte negative logical minimum" do
-      assert HidParser.parse_report_descriptor(<<0x16, 0x00, 0x80>>) == [
-               %LogicalMinimum{value: -32_768}
-             ]
+      assert items(<<0x16, 0x00, 0x80>>) == [%LogicalMinimum{value: -32_768}]
     end
 
     test "negative logical maximum" do
-      assert HidParser.parse_report_descriptor(<<0x25, 0xFF>>) == [%LogicalMaximum{value: -1}]
+      assert items(<<0x25, 0xFF>>) == [%LogicalMaximum{value: -1}]
     end
 
     test "negative physical minimum" do
-      assert HidParser.parse_report_descriptor(<<0x35, 0x80>>) == [%PhysicalMinimum{value: -128}]
+      assert items(<<0x35, 0x80>>) == [%PhysicalMinimum{value: -128}]
     end
 
     test "negative physical maximum" do
-      assert HidParser.parse_report_descriptor(<<0x45, 0x80>>) == [%PhysicalMaximum{value: -128}]
+      assert items(<<0x45, 0x80>>) == [%PhysicalMaximum{value: -128}]
     end
 
     test "negative unit exponent" do
-      assert HidParser.parse_report_descriptor(<<0x55, 0x0B>>) == [%UnitExponent{value: -5}]
+      assert items(<<0x55, 0x0B>>) == [%UnitExponent{value: -5}]
     end
   end
 
   describe "Report local items" do
     test "usage" do
-      assert HidParser.parse_report_descriptor(<<0x09, 0x01>>) == [%Usage{value: 1}]
+      assert items(<<0x09, 0x01>>) == [%Usage{value: 1}]
     end
 
     test "usage minimum" do
-      assert HidParser.parse_report_descriptor(<<0x19, 0x00>>) == [%UsageMinimum{value: 0}]
+      assert items(<<0x19, 0x00>>) == [%UsageMinimum{value: 0}]
     end
 
     test "usage maximum" do
-      assert HidParser.parse_report_descriptor(<<0x29, 0x01>>) == [%UsageMaximum{value: 1}]
+      assert items(<<0x29, 0x01>>) == [%UsageMaximum{value: 1}]
     end
 
     test "designator index" do
-      assert HidParser.parse_report_descriptor(<<0x39, 0x01>>) == [%DesignatorIndex{value: 1}]
+      assert items(<<0x39, 0x01>>) == [%DesignatorIndex{value: 1}]
     end
 
     test "designator minimum" do
-      assert HidParser.parse_report_descriptor(<<0x49, 0x00>>) == [%DesignatorMinimum{value: 0}]
+      assert items(<<0x49, 0x00>>) == [%DesignatorMinimum{value: 0}]
     end
 
     test "designator maximum" do
-      assert HidParser.parse_report_descriptor(<<0x59, 0x01>>) == [%DesignatorMaximum{value: 1}]
+      assert items(<<0x59, 0x01>>) == [%DesignatorMaximum{value: 1}]
     end
 
     test "string index" do
-      assert HidParser.parse_report_descriptor(<<0x79, 0x01>>) == [%StringIndex{value: 1}]
+      assert items(<<0x79, 0x01>>) == [%StringIndex{value: 1}]
     end
 
     test "string minimum" do
-      assert HidParser.parse_report_descriptor(<<0x89, 0x00>>) == [%StringMinimum{value: 0}]
+      assert items(<<0x89, 0x00>>) == [%StringMinimum{value: 0}]
     end
 
     test "string maximum" do
-      assert HidParser.parse_report_descriptor(<<0x99, 0x01>>) == [%StringMaximum{value: 1}]
+      assert items(<<0x99, 0x01>>) == [%StringMaximum{value: 1}]
     end
 
     test "delimiter" do
-      assert HidParser.parse_report_descriptor(<<0xA9, 0x01>>) == [%Delimiter{value: 1}]
+      assert items(<<0xA9, 0x01>>) == [%Delimiter{value: 1}]
     end
 
     test "reserved" do
-      assert HidParser.parse_report_descriptor(<<0xB9, 0x01>>) == [
-               %HidParser.ReportDescriptor.Reserved{raw: <<0xB9, 0x01>>}
-             ]
+      assert items(<<0xB9, 0x01>>) == [%HidParser.ReportDescriptor.Reserved{raw: <<0xB9, 0x01>>}]
     end
   end
 
   describe "long items" do
     test "long item" do
-      assert HidParser.parse_report_descriptor(<<0xFF, 0x01, 0x01, 0xAA>>) == [
-               %LongItem{tag: 1, data: <<0xAA>>}
-             ]
+      assert items(<<0xFF, 0x01, 0x01, 0xAA>>) == [%LongItem{tag: 1, data: <<0xAA>>}]
     end
 
     test "long item with no data" do
-      assert HidParser.parse_report_descriptor(<<0xFF, 0x01, 0x00>>) == [
-               %LongItem{tag: 1, data: <<>>}
-             ]
+      assert items(<<0xFF, 0x01, 0x00>>) == [%LongItem{tag: 1, data: <<>>}]
     end
 
     test "long item followed by a short item" do
-      assert HidParser.parse_report_descriptor(<<0xFF, 0x01, 0x01, 0xAA, 0xC0>>) == [
+      assert items(<<0xFF, 0x01, 0x01, 0xAA, 0x05, 0x01>>) == [
                %LongItem{tag: 1, data: <<0xAA>>},
-               %EndCollection{flags: 0}
+               %UsagePage{value: 1}
              ]
     end
   end
 
   describe "collection tree" do
     test "single collection" do
-      tree =
-        HidParser.parse_report_descriptor_tree(<<
-          0xA1,
-          0x01,
-          0x05,
-          0x01,
-          0xC0
-        >>)
-
-      assert tree == [
+      assert items(<<0xA1, 0x01, 0x05, 0x01, 0xC0>>) == [
                %Collection{
                  flags: 1,
                  items: [%UsagePage{value: 1}],
@@ -251,19 +239,16 @@ defmodule HidParser.ReportDescriptorTest do
     end
 
     test "nested collections" do
-      tree =
-        HidParser.parse_report_descriptor_tree(<<
-          0xA1,
-          0x01,
-          0xA1,
-          0x02,
-          0x05,
-          0x01,
-          0xC0,
-          0xC0
-        >>)
-
-      assert tree == [
+      assert items(<<
+               0xA1,
+               0x01,
+               0xA1,
+               0x02,
+               0x05,
+               0x01,
+               0xC0,
+               0xC0
+             >>) == [
                %Collection{
                  flags: 1,
                  items: [
@@ -279,26 +264,14 @@ defmodule HidParser.ReportDescriptorTest do
     end
 
     test "sibling collections" do
-      tree =
-        HidParser.parse_report_descriptor_tree(<<
-          0xA1,
-          0x01,
-          0xC0,
-          0xA1,
-          0x02,
-          0xC0
-        >>)
-
-      assert tree == [
+      assert items(<<0xA1, 0x01, 0xC0, 0xA1, 0x02, 0xC0>>) == [
                %Collection{flags: 1, items: [], end_flags: 0},
                %Collection{flags: 2, items: [], end_flags: 0}
              ]
     end
 
     test "collection end flags are recorded" do
-      tree = HidParser.parse_report_descriptor_tree(<<0xA1, 0x01, 0xC0>>)
-
-      assert tree == [%Collection{flags: 1, items: [], end_flags: 0}]
+      assert items(<<0xA1, 0x01, 0xC0>>) == [%Collection{flags: 1, items: [], end_flags: 0}]
     end
   end
 end

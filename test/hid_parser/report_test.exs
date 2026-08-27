@@ -1,10 +1,13 @@
 defmodule HidParser.ReportTest do
   use ExUnit.Case
 
+  alias HidParser.Error
   alias HidParser.Report
-  alias HidParser.Report.Field
+  alias HidParser.Report.Value
+  alias HidParser.ReportCodec
+  alias HidParser.ReportCodec.Field
 
-  doctest HidParser.Report
+  doctest HidParser.Report.Value
 
   @keyboard <<
     0x05,
@@ -56,9 +59,21 @@ defmodule HidParser.ReportTest do
     0xC0
   >>
 
+  defp codec(bytes, opts \\ []) do
+    {:ok, descriptor} = HidParser.ReportDescriptor.parse(bytes)
+    {:ok, codec} = HidParser.ReportCodec.compile(descriptor, opts)
+    codec
+  end
+
+  defp values(field, ints) do
+    ints
+    |> Enum.with_index()
+    |> Enum.map(fn {logical, index} -> %Value{field: field, index: index, logical: logical} end)
+  end
+
   describe "compile/2" do
     test "compiles a keyboard into per-report fields" do
-      report = Report.compile(@keyboard)
+      report = codec(@keyboard)
 
       assert report.vid == nil
       assert report.pid == nil
@@ -115,7 +130,7 @@ defmodule HidParser.ReportTest do
         0x02
       >>
 
-      report = Report.compile(descriptor)
+      report = codec(descriptor)
 
       assert report.uses_report_id? == false
       assert [field] = report.reports[0]
@@ -123,7 +138,7 @@ defmodule HidParser.ReportTest do
       assert %Field{size: 1, count: 3, usages: [0x30]} = field
     end
 
-    test "report_id option keys a report-id-less descriptor" do
+    test "stores vid/pid metadata" do
       descriptor = <<
         0x05,
         0x01,
@@ -141,18 +156,7 @@ defmodule HidParser.ReportTest do
         0x02
       >>
 
-      report = Report.compile(descriptor, report_id: 3)
-
-      assert report.uses_report_id? == false
-      assert [field] = report.reports[3]
-      assert field.report_id == 3
-    end
-
-    test "stores vid/pid metadata" do
-      descriptor =
-        <<0x05, 0x01, 0x09, 0x30, 0x15, 0x00, 0x25, 0x01, 0x75, 0x08, 0x95, 0x01, 0x81, 0x02>>
-
-      report = Report.compile(descriptor, vid: 0x046A, pid: 0x00B0)
+      report = codec(descriptor, vid: 0x046A, pid: 0x00B0)
 
       assert report.vid == 0x046A
       assert report.pid == 0x00B0
@@ -178,7 +182,7 @@ defmodule HidParser.ReportTest do
         0x02
       >>
 
-      [field] = Report.compile(descriptor).reports[0]
+      [field] = codec(descriptor).reports[0]
 
       assert field.signed? == true
       assert field.logical_min == -32_768
@@ -213,7 +217,7 @@ defmodule HidParser.ReportTest do
         0x02
       >>
 
-      [field] = Report.compile(descriptor).reports[0]
+      [field] = codec(descriptor).reports[0]
 
       assert field.physical_min == 0
       assert field.physical_max == 10_240
@@ -257,7 +261,7 @@ defmodule HidParser.ReportTest do
         0x02
       >>
 
-      report = Report.compile(descriptor)
+      report = codec(descriptor)
 
       assert Map.keys(report.reports) == [1, 2]
 
@@ -286,7 +290,7 @@ defmodule HidParser.ReportTest do
         0xC0
       >>
 
-      [field] = Report.compile(descriptor).reports[0]
+      [field] = codec(descriptor).reports[0]
 
       assert field.usage_page == 1
       assert field.usages == [0x30]
@@ -320,36 +324,35 @@ defmodule HidParser.ReportTest do
         0x02
       >>
 
-      [first, second] = Report.compile(descriptor).reports[0]
+      [first, second] = codec(descriptor).reports[0]
 
       assert %Field{size: 16, count: 1, usages: [0x30]} = first
       assert %Field{size: 8, count: 1, usages: [0x31]} = second
     end
 
-    test "raises on unbalanced Pop" do
-      assert_raise ArgumentError, ~r/Pop without a matching Push/, fn ->
-        Report.compile(<<0xB4>>)
-      end
+    test "errors on Pop without Push" do
+      assert {:error, %Error{reason: :pop_without_push}} = codec_error(<<0xB4>>)
     end
 
-    test "raises on unclosed collection" do
-      assert_raise ArgumentError, ~r/EndCollection missing/, fn ->
-        Report.compile(<<0x05, 0x01, 0x09, 0x01, 0xA1, 0x00>>)
-      end
+    test "errors on Push without Pop" do
+      assert {:error, %Error{reason: :push_without_pop}} = codec_error(<<0xA4>>)
     end
   end
 
-  describe "parse/2 + build/2 roundtrip" do
+  describe "decode/2 + encode/2 roundtrip" do
     test "keyboard with report id, array and constant padding" do
-      report = Report.compile(@keyboard)
-      [modifiers, _padding, keys] = report.reports[1]
+      codec = codec(@keyboard)
+      [modifiers, _padding, keys] = codec.reports[1]
 
-      values = [{modifiers, [1, 0, 1, 0, 0, 0, 0, 0]}, {keys, [0x04, 0x1E, 0, 0, 0, 0]}]
+      values =
+        values(modifiers, [1, 0, 1, 0, 0, 0, 0, 0]) ++ values(keys, [0x04, 0x1E, 0, 0, 0, 0])
 
-      assert {:ok, binary} = Report.build(report, values)
+      report = %Report{report_id: 1, values: values}
+
+      assert {:ok, binary} = ReportCodec.encode(codec, report)
       assert binary == <<1, 0x05, 0x00, 0x04, 0x1E, 0, 0, 0, 0>>
 
-      assert {:ok, ^values} = Report.parse(report, binary)
+      assert {:ok, ^report} = ReportCodec.decode(codec, binary)
     end
 
     test "signed 16-bit field roundtrips its full range" do
@@ -372,17 +375,17 @@ defmodule HidParser.ReportTest do
         0x02
       >>
 
-      report = Report.compile(descriptor)
-      [field] = report.reports[0]
+      codec = codec(descriptor)
+      [field] = codec.reports[0]
 
       for v <- [-32_768, -1, 0, 1, 32_767] do
-        values = [{field, [v]}]
-        assert {:ok, binary} = Report.build(report, values)
-        assert {:ok, ^values} = Report.parse(report, binary)
+        report = %Report{report_id: 0, values: values(field, [v])}
+        assert {:ok, binary} = ReportCodec.encode(codec, report)
+        assert {:ok, ^report} = ReportCodec.decode(codec, binary)
       end
     end
 
-    test "build(parse(bin)) == bin for constant-free reports" do
+    test "encode(decode(bin)) == bin for constant-free reports" do
       descriptor = <<
         0x05,
         0x01,
@@ -402,24 +405,25 @@ defmodule HidParser.ReportTest do
         0x02
       >>
 
-      report = Report.compile(descriptor)
-      [field] = report.reports[0]
+      codec = codec(descriptor)
+      [field] = codec.reports[0]
 
       for v <- [-32_768, -1, 0, 1, 32_767] do
-        assert {:ok, binary} = Report.build(report, [{field, [v]}])
-        assert {:ok, values} = Report.parse(report, binary)
-        assert {:ok, ^binary} = Report.build(report, values)
+        assert {:ok, binary} =
+                 ReportCodec.encode(codec, %Report{report_id: 0, values: values(field, [v])})
+
+        assert {:ok, report} = ReportCodec.decode(codec, binary)
+        assert {:ok, ^binary} = ReportCodec.encode(codec, report)
       end
     end
 
-    test "build(parse(bin)) == bin with zero constant padding" do
-      report = Report.compile(@keyboard)
+    test "encode(decode(bin)) == bin with zero constant padding" do
+      codec = codec(@keyboard)
 
-      # Constant padding must be zero for an exact roundtrip (documented corner).
       binary = <<1, 0x05, 0x00, 0x04, 0x1E, 0, 0, 0, 0>>
 
-      assert {:ok, values} = Report.parse(report, binary)
-      assert {:ok, ^binary} = Report.build(report, values)
+      assert {:ok, report} = ReportCodec.decode(codec, binary)
+      assert {:ok, ^binary} = ReportCodec.encode(codec, report)
     end
 
     test "multi report id roundtrip" do
@@ -457,94 +461,123 @@ defmodule HidParser.ReportTest do
         0x02
       >>
 
-      report = Report.compile(descriptor)
-      [f1] = report.reports[1]
-      [f2] = report.reports[2]
+      codec = codec(descriptor)
+      [f1] = codec.reports[1]
+      [f2] = codec.reports[2]
 
-      assert {:ok, <<1, 0x01>>} = Report.build(report, [{f1, [0x01]}])
-      assert {:ok, <<2, 0xAA, 0xBB>>} = Report.build(report, [{f2, [0xAA, 0xBB]}])
+      r1 = %Report{report_id: 1, values: values(f1, [1])}
+      r2 = %Report{report_id: 2, values: values(f2, [0xAA, 0xBB])}
 
-      assert {:ok, [{^f1, [0x01]}]} = Report.parse(report, <<1, 0x01>>)
-      assert {:ok, [{^f2, [0xAA, 0xBB]}]} = Report.parse(report, <<2, 0xAA, 0xBB>>)
+      assert {:ok, <<1, 0x01>>} = ReportCodec.encode(codec, r1)
+      assert {:ok, <<2, 0xAA, 0xBB>>} = ReportCodec.encode(codec, r2)
+
+      assert {:ok, ^r1} = ReportCodec.decode(codec, <<1, 0x01>>)
+      assert {:ok, ^r2} = ReportCodec.decode(codec, <<2, 0xAA, 0xBB>>)
     end
 
-    test "parse errors on empty report with report ids" do
-      report = Report.compile(@keyboard)
+    test "decode errors on empty report with report ids" do
+      codec = codec(@keyboard)
 
-      assert Report.parse(report, <<>>) == {:error, :empty_report}
+      assert ReportCodec.decode(codec, <<>>) == {:error, %Error{reason: :empty_report}}
     end
 
-    test "parse errors on unknown report id" do
-      report = Report.compile(@keyboard)
+    test "decode errors on unknown report id" do
+      codec = codec(@keyboard)
 
-      assert Report.parse(report, <<0x02, 0x00, 0x00>>) == {:error, {:unknown_report_id, 2}}
+      assert ReportCodec.decode(codec, <<0x02, 0x00, 0x00>>) ==
+               {:error, %Error{reason: :unknown_report_id, detail: 2}}
     end
 
-    test "build errors on out-of-range value" do
-      report = Report.compile(@keyboard)
-      [modifiers, _padding, keys] = report.reports[1]
+    test "decode errors on a codec with no reports" do
+      codec = codec(<<0x05, 0x01>>)
 
-      assert {:error, {:out_of_range, ^modifiers, 5}} =
-               Report.build(report, [
-                 {modifiers, [1, 0, 1, 0, 0, 0, 0, 5]},
-                 {keys, [0, 0, 0, 0, 0, 0]}
-               ])
-    end
-
-    test "build errors on wrong number of values" do
-      report = Report.compile(@keyboard)
-      [modifiers, _padding, keys] = report.reports[1]
-
-      assert {:error, {:value_count_mismatch, ^modifiers, 2}} =
-               Report.build(report, [{modifiers, [1, 0]}, {keys, [0, 0, 0, 0, 0, 0]}])
-    end
-
-    test "build errors on missing values" do
-      report = Report.compile(@keyboard)
-      [modifiers, _padding, keys] = report.reports[1]
-
-      assert {:error, {:missing_values, ^keys}} =
-               Report.build(report, [{modifiers, [0, 0, 0, 0, 0, 0, 0, 0]}])
-    end
-
-    test "build errors on extra values" do
-      report = Report.compile(@keyboard)
-      [modifiers, _padding, keys] = report.reports[1]
-
-      values = [
-        {modifiers, [0, 0, 0, 0, 0, 0, 0, 0]},
-        {keys, [0, 0, 0, 0, 0, 0]},
-        {modifiers, [0, 0, 0, 0, 0, 0, 0, 0]}
-      ]
-
-      assert {:error, {:extra_values, _}} = Report.build(report, values)
+      assert ReportCodec.decode(codec, <<>>) == {:error, %Error{reason: :no_reports}}
     end
   end
 
-  describe "value accessors" do
-    test "value/2 is the identity" do
-      assert Report.value(%Field{}, 42) == 42
+  describe "encode/2 errors" do
+    test "unknown report id" do
+      codec = codec(@keyboard)
+
+      assert ReportCodec.encode(codec, %Report{report_id: 2, values: []}) ==
+               {:error, %Error{reason: :unknown_report_id, detail: 2}}
     end
 
-    test "physical/2 linear mapping" do
+    test "out-of-range value" do
+      codec = codec(@keyboard)
+      [modifiers, _padding, keys] = codec.reports[1]
+
+      report = %Report{
+        report_id: 1,
+        values: values(modifiers, [1, 0, 1, 0, 0, 0, 0, 5]) ++ values(keys, [0, 0, 0, 0, 0, 0])
+      }
+
+      assert {:error, %Error{reason: :out_of_range, detail: {^modifiers, 5}}} =
+               ReportCodec.encode(codec, report)
+    end
+
+    test "value count mismatch" do
+      codec = codec(@keyboard)
+      [modifiers, _padding, keys] = codec.reports[1]
+
+      report = %Report{
+        report_id: 1,
+        values: values(modifiers, [1, 0]) ++ values(keys, [0, 0, 0, 0, 0, 0])
+      }
+
+      assert {:error, %Error{reason: :value_count_mismatch, detail: {^modifiers, 2}}} =
+               ReportCodec.encode(codec, report)
+    end
+
+    test "missing values" do
+      codec = codec(@keyboard)
+      [modifiers, _padding, keys] = codec.reports[1]
+
+      report = %Report{report_id: 1, values: values(modifiers, [0, 0, 0, 0, 0, 0, 0, 0])}
+
+      assert {:error, %Error{reason: :missing_values, detail: ^keys}} =
+               ReportCodec.encode(codec, report)
+    end
+
+    test "field mismatch" do
+      codec = codec(@keyboard)
+      bogus = %Field{offset: 999}
+
+      report = %Report{report_id: 1, values: [%Value{field: bogus, index: 0, logical: 0}]}
+
+      assert {:error, %Error{reason: :field_mismatch, detail: ^bogus}} =
+               ReportCodec.encode(codec, report)
+    end
+  end
+
+  describe "Value accessors" do
+    test "logical/1 is the stored integer" do
+      field = %Field{}
+      assert Value.logical(%Value{field: field, index: 0, logical: 42}) == 42
+    end
+
+    test "physical/1 linear mapping" do
       field = %Field{logical_min: 0, logical_max: 100, physical_min: 0, physical_max: 1000}
+      value = %Value{field: field, index: 0, logical: 50}
 
-      assert Report.physical(field, 50) == 500.0
+      assert Value.physical(value) == 500.0
     end
 
-    test "physical/2 is nil without a physical range" do
+    test "physical/1 is nil without a physical range" do
       field = %Field{logical_min: 0, logical_max: 100}
+      value = %Value{field: field, index: 0, logical: 50}
 
-      assert Report.physical(field, 50) == nil
+      assert Value.physical(value) == nil
     end
 
-    test "physical/2 is nil on degenerate logical range" do
+    test "physical/1 is nil on degenerate logical range" do
       field = %Field{logical_min: 0, logical_max: 0, physical_min: 0, physical_max: 100}
+      value = %Value{field: field, index: 0, logical: 0}
 
-      assert Report.physical(field, 0) == nil
+      assert Value.physical(value) == nil
     end
 
-    test "scaled/2 applies the unit exponent" do
+    test "scaled/1 applies the unit exponent" do
       field = %Field{
         logical_min: 0,
         logical_max: 100,
@@ -553,54 +586,75 @@ defmodule HidParser.ReportTest do
         unit_exponent: -1
       }
 
-      assert Report.scaled(field, 50) == 50.0
+      value = %Value{field: field, index: 0, logical: 50}
+
+      assert Value.scaled(value) == 50.0
     end
 
-    test "scaled/2 is nil when physical/2 is nil" do
-      assert Report.scaled(%Field{logical_min: 0, logical_max: 100}, 50) == nil
+    test "scaled/1 is nil when physical/1 is nil" do
+      field = %Field{logical_min: 0, logical_max: 100}
+      value = %Value{field: field, index: 0, logical: 50}
+
+      assert Value.scaled(value) == nil
+    end
+
+    test "usage/1 and name/1" do
+      field = %Field{usage_page: 1, usages: [0x30], flags: %{variable: true}}
+      value = %Value{field: field, index: 0, logical: -3}
+
+      assert Value.usage(value) == {1, 0x30}
+      assert Value.name(value) == "X"
+    end
+
+    test "name/1 falls back for unknown usages" do
+      field = %Field{usage_page: 0xFFFF, usages: [0x30], flags: %{variable: true}}
+      value = %Value{field: field, index: 0, logical: -3}
+
+      assert Value.name(value) == "0xFFFF:0x30"
+    end
+
+    test "array element usage is its value" do
+      field = %Field{usage_page: 7, usages: [0], flags: %{variable: false}}
+      value = %Value{field: field, index: 0, logical: 0x04}
+
+      assert Value.usage(value) == {7, 0x04}
+      assert Value.name(value) == "Keyboard A"
     end
   end
 
-  describe "to_keyword/2" do
-    test "flattens one entry per element" do
-      report = Report.compile(@keyboard)
-      [modifiers, _padding, keys] = report.reports[1]
+  describe "inspect" do
+    test "Value is concise" do
+      field = %Field{usage_page: 7, usages: [0xE0], flags: %{variable: true}}
+      value = %Value{field: field, index: 0, logical: 1}
 
-      values = [{modifiers, [1, 0]}, {keys, [0x04, 0x1E]}]
-
-      assert Report.to_keyword(report, values) == [
-               {"Keyboard LeftControl", %{usage_page: 7, usage_id: 0xE0, value: 1}},
-               {"Keyboard LeftShift", %{usage_page: 7, usage_id: 0xE1, value: 0}},
-               {"Keyboard A", %{usage_page: 7, usage_id: 0x04, value: 0x04}},
-               {"Keyboard 1 and Bang", %{usage_page: 7, usage_id: 0x1E, value: 0x1E}}
-             ]
+      assert inspect(value) == "#Report.Value<Keyboard LeftControl = 1>"
     end
 
-    test "a shared usage is repeated for every element" do
-      descriptor = <<
-        0x05,
-        0x01,
-        0x09,
-        0x30,
-        0x15,
-        0x00,
-        0x25,
-        0x01,
-        0x75,
-        0x01,
-        0x95,
-        0x02,
-        0x81,
-        0x02
-      >>
+    test "Value is verbose with custom option" do
+      field = %Field{usage_page: 7, usages: [0xE0], flags: %{variable: true}}
+      value = %Value{field: field, index: 0, logical: 1}
 
-      report = Report.compile(descriptor)
-      [field] = report.reports[0]
-
-      assert Report.to_keyword(report, [{field, [1, 0]}]) == [
-               {"X", %{usage_page: 1, usage_id: 0x30, value: 1}},
-               {"X", %{usage_page: 1, usage_id: 0x30, value: 0}}
-             ]
+      assert inspect(value, custom_options: [verbose: true]) =~ "%HidParser.Report.Value{"
     end
+
+    test "Report is concise" do
+      assert inspect(%Report{report_id: 1, values: []}) == "#Report<1, []>"
+    end
+
+    test "Error is concise" do
+      assert inspect(%Error{reason: :out_of_range}) == "#Error<out_of_range>"
+    end
+
+    test "Codec and Descriptor are concise" do
+      codec = codec(@keyboard)
+
+      assert inspect(codec) == "#ReportCodec<vid: nil, pid: nil, 1 reports>"
+      assert inspect(codec.reports[1] |> hd()) =~ "#Field<"
+    end
+  end
+
+  defp codec_error(bytes) do
+    {:ok, descriptor} = HidParser.ReportDescriptor.parse(bytes)
+    HidParser.ReportCodec.compile(descriptor)
   end
 end

@@ -1,18 +1,18 @@
-defmodule HidParser.Report.Field do
+defmodule HidParser.ReportCodec.Field do
   @moduledoc """
-  A single field of a compiled HID report.
+  A single field of a compiled report codec.
 
-  A field is the product of one `Input`/`Output`/`Feature` main item after the
-  parser has resolved the current global/local state, collection nesting and
-  usage inheritance. See `HidParser.Report.compile/2`.
+  A field is the product of one `Input`/`Output`/`Feature` main item after
+  `HidParser.ReportCodec.compile/2` has resolved the current global/local state,
+  collection nesting and usage inheritance. See HID 1.11 §6.2.2.7 and §6.2.2.8.
 
   ## Value storage
 
-  The *canonical* value of a field is a list of logical integers (one per
-  element, `count` of them). Physical and SI-scaled values are deliberately
-  **not** stored: they are derived on demand by
-  `HidParser.Report.physical/2` and `HidParser.Report.scaled/2`, so the model
-  stays lossless and `build(parse(bin)) == bin` holds exactly.
+  The canonical value of a field is a list of logical integers (one per element,
+  `count` of them). Physical and SI-scaled values are deliberately **not**
+  stored: they are derived on demand by `HidParser.Report.Value.physical/1` and
+  `HidParser.Report.Value.scaled/1`, so the model stays lossless and
+  `encode(decode(binary)) == binary` holds exactly.
 
   ## Usages
 
@@ -26,8 +26,6 @@ defmodule HidParser.Report.Field do
       `min..max` range, i.e. the domain of values each element may take,
     * no local usage → inherited from the nearest enclosing collection that
       declares one (an empty list when none does).
-
-  See HID 1.11 §6.2.2.7 and §6.2.2.8.
   """
 
   @type usage :: {usage_page :: integer(), usage_ids :: [integer()]}
@@ -65,4 +63,26 @@ defmodule HidParser.Report.Field do
             unit_exponent: 0,
             usage_page: 0,
             usages: []
+end
+
+defimpl Inspect, for: HidParser.ReportCodec.Field do
+  import Inspect.Algebra
+
+  def inspect(field, opts) do
+    if opts.custom_options[:verbose] do
+      Inspect.Any.inspect(field, opts)
+    else
+      concat([
+        "#Field<",
+        to_doc(field.type, opts),
+        ", offset: ",
+        to_doc(field.offset, opts),
+        ", size: ",
+        to_doc(field.size, opts),
+        ", count: ",
+        to_doc(field.count, opts),
+        ">"
+      ])
+    end
+  end
 end

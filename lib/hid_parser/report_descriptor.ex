@@ -1,11 +1,20 @@
 defmodule HidParser.ReportDescriptor do
   @moduledoc """
-  `HidParser` parses a binary into a list of report descriptor items.
+  A parsed HID report descriptor: the collection tree of items.
+
+  `parse/1` decodes a descriptor binary into this tree, which is the canonical
+  (syntax-level) representation of the descriptor. The tree preserves the
+  nesting declared by `Collection` items; the flat item list is an internal
+  detail. See HID 1.11 §6.2.2.
+
+  The individual item structs live under this module (e.g.
+  `HidParser.ReportDescriptor.Input`, `HidParser.ReportDescriptor.Collection`).
+  The usage-table lookups (`usage_pages/0`, `usage_page_name/1`,
+  `usage_name/2`) are exposed here as well, and are shared by
+  `HidParser.Report.Value.name/1`.
   """
 
   alias HidParser.ReportDescriptor.Helper
-
-  # Implement ReportDesriptor parsing à la
 
   # Main Items
   alias HidParser.ReportDescriptor.{Input, Output, Feature, Collection, EndCollection, Reserved}
@@ -43,6 +52,32 @@ defmodule HidParser.ReportDescriptor do
   }
 
   @usage_pages_file "priv/static/HidUsageTables.json"
+
+  @type t :: %__MODULE__{items: [term()]}
+
+  defstruct items: []
+
+  @doc """
+  Parses a report descriptor binary into a `t:t/0` collection tree.
+
+  Returns `{:error, %HidParser.Error{reason: :invalid_descriptor}}` for a
+  malformed or truncated descriptor.
+
+  ## Examples
+
+      iex> {:ok, %HidParser.ReportDescriptor{items: [item]}} =
+      ...>   HidParser.ReportDescriptor.parse(<<0x05, 0x01>>)
+      iex> item
+      %HidParser.ReportDescriptor.UsagePage{value: 1}
+
+  """
+  @spec parse(binary()) :: {:ok, t()} | {:error, HidParser.Error.t()}
+  def parse(binary) when is_binary(binary) do
+    {:ok, %__MODULE__{items: binary |> parse_items() |> parse_collections()}}
+  rescue
+    MatchError -> {:error, HidParser.Error.exception(reason: :invalid_descriptor)}
+    FunctionClauseError -> {:error, HidParser.Error.exception(reason: :invalid_descriptor)}
+  end
 
   @doc """
   Returns the HID usage tables, parsed from `priv/static/HidUsageTables.json`.
@@ -99,7 +134,7 @@ defmodule HidParser.ReportDescriptor do
     end
   end
 
-  def parse_items(binary) when is_binary(binary) do
+  defp parse_items(binary) when is_binary(binary) do
     binary |> parse_items([])
   end
 
@@ -120,21 +155,10 @@ defmodule HidParser.ReportDescriptor do
     parse_items(rest, [item | acc])
   end
 
-  @doc """
-  Builds the nested collection tree from a flat list of items.
-
-  Each `Collection` accumulates its child items into `items` and records the
-  matching `EndCollection` flags in `end_flags`.
-
-  ## Examples
-
-      iex> HidParser.ReportDescriptor.parse_collections([
-      ...>   %HidParser.ReportDescriptor.Collection{flags: 1},
-      ...>   %HidParser.ReportDescriptor.EndCollection{flags: 0}
-      ...> ])
-      [%HidParser.ReportDescriptor.Collection{flags: 1, items: [], end_flags: 0}]
-  """
-  def parse_collections(items) when is_list(items) do
+  # Builds the nested collection tree from a flat list of items: each `Collection`
+  # accumulates its child items into `items` and records the matching
+  # `EndCollection` flags in `end_flags`.
+  defp parse_collections(items) when is_list(items) do
     {acc, _end_flags, []} = parse_nodes(items, [])
     Enum.reverse(acc)
   end
@@ -182,4 +206,35 @@ defmodule HidParser.ReportDescriptor do
   defp new_item(0b10, 0b1010, data, _raw), do: Delimiter.new(data)
 
   defp new_item(_bType, _bTag, _data, raw), do: Reserved.new(raw)
+end
+
+defimpl Inspect, for: HidParser.ReportDescriptor do
+  import Inspect.Algebra
+
+  def inspect(descriptor, opts) do
+    if opts.custom_options[:verbose] do
+      Inspect.Any.inspect(descriptor, opts)
+    else
+      {collections, items} = count(descriptor.items)
+
+      concat([
+        "#ReportDescriptor<",
+        to_string(collections),
+        " collections, ",
+        to_string(items),
+        " items>"
+      ])
+    end
+  end
+
+  defp count(items) do
+    Enum.reduce(items, {0, 0}, fn
+      %HidParser.ReportDescriptor.Collection{items: children}, {collections, items} ->
+        {cc, ci} = count(children)
+        {collections + 1 + cc, items + 1 + ci}
+
+      _item, {collections, items} ->
+        {collections, items + 1}
+    end)
+  end
 end

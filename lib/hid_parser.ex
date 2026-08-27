@@ -1,40 +1,17 @@
 defmodule HidParser do
   @moduledoc """
-  Parses and works with USB HID report descriptors (HID 1.11).
+  A USB HID report descriptor parser and codec.
 
-  The library has two layers:
+  The pipeline has three stages — parse the descriptor syntax, compile it into a
+  codec, then decode/encode reports:
 
-    * **Descriptor items** — `parse_report_descriptor/1` and
-      `parse_report_descriptor_tree/1` decode a descriptor binary into
-      `HidParser.ReportDescriptor` item structs (syntax only).
-    * **Report model** — `HidParser.Report.compile/2` turns those items into a
-      per-report field model, and `HidParser.Report.parse/2` /
-      `HidParser.Report.build/2` convert between binary reports and canonical
-      logical values.
+      {:ok, descriptor} = HidParser.ReportDescriptor.parse(descriptor_bytes)
+      {:ok, codec}      = HidParser.ReportCodec.compile(descriptor, vid: vid, pid: pid)
+      {:ok, report}     = HidParser.ReportCodec.decode(codec, report_bytes)
+      {:ok, binary}     = HidParser.ReportCodec.encode(codec, report)
 
-  ## Examples
-
-      iex> HidParser.parse_report_descriptor(<<0x05, 0x01, 0x09, 0x06>>)
-      [
-        %HidParser.ReportDescriptor.UsagePage{value: 1},
-        %HidParser.ReportDescriptor.Usage{value: 6}
-      ]
-
-  For report parsing/building and value scaling, see `HidParser.Report`.
+  See `HidParser.ReportDescriptor` (syntax), `HidParser.ReportCodec` (compiled
+  model), and `HidParser.Report` (report data) for the individual stages. All
+  four verbs return `{:ok, _}` / `{:error, %HidParser.Error{}}`.
   """
-
-  @doc """
-  Parses a report descriptor binary into a flat list of items.
-  """
-  def parse_report_descriptor(binary) when is_binary(binary),
-    do: HidParser.ReportDescriptor.parse_items(binary)
-
-  @doc """
-  Parses a report descriptor binary into a nested collection tree.
-  """
-  def parse_report_descriptor_tree(binary) when is_binary(binary) do
-    binary
-    |> HidParser.ReportDescriptor.parse_items()
-    |> HidParser.ReportDescriptor.parse_collections()
-  end
 end

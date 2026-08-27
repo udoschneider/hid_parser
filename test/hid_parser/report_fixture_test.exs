@@ -23,16 +23,19 @@ defmodule HidParser.ReportFixtureTest do
     refute descriptors == [], "no descriptors extracted from fixtures"
 
     for {file, index, descriptor} <- descriptors do
-      report = HidParser.Report.compile(descriptor)
+      {:ok, descriptor} = HidParser.ReportDescriptor.parse(descriptor)
+      {:ok, codec} = HidParser.ReportCodec.compile(descriptor)
 
-      for {id, fields} <- report.reports, roundtrippable?(fields) do
-        values = values_for(fields)
+      for {id, fields} <- codec.reports, roundtrippable?(fields) do
+        report = %HidParser.Report{report_id: id, values: values_for(fields)}
 
-        assert {:ok, binary} = HidParser.Report.build(report, values),
-               "#{file}[#{index}] report #{id}: build failed"
+        assert {:ok, binary} = HidParser.ReportCodec.encode(codec, report),
+               "#{file}[#{index}] report #{id}: encode failed"
 
-        assert {:ok, ^values} = HidParser.Report.parse(report, binary),
-               "#{file}[#{index}] report #{id}: roundtrip mismatch"
+        assert {:ok, decoded} = HidParser.ReportCodec.decode(codec, binary),
+               "#{file}[#{index}] report #{id}: decode failed"
+
+        assert decoded == report, "#{file}[#{index}] report #{id}: roundtrip mismatch"
       end
     end
   end
@@ -71,13 +74,20 @@ defmodule HidParser.ReportFixtureTest do
   end
 
   defp values_for(fields) do
-    for field <- fields, not field.flags.constant do
-      range = field.logical_max - field.logical_min + 1
+    for field <- fields, not field.flags.constant, reduce: [] do
+      acc ->
+        range = field.logical_max - field.logical_min + 1
 
-      values =
-        for i <- 0..(field.count - 1), do: field.logical_min + rem(i, range)
+        values =
+          for i <- 0..(field.count - 1) do
+            %HidParser.Report.Value{
+              field: field,
+              index: i,
+              logical: field.logical_min + rem(i, range)
+            }
+          end
 
-      {field, values}
+        acc ++ values
     end
   end
 end
