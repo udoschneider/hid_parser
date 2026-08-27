@@ -62,6 +62,41 @@ defmodule HidParser.ReportDescriptor do
     pages
   end
 
+  @doc """
+  Returns the name of a usage page, or `nil` if it is not in the usage tables.
+
+  ## Examples
+
+      iex> HidParser.ReportDescriptor.usage_page_name(1)
+      "Generic Desktop"
+
+  """
+  @spec usage_page_name(integer()) :: String.t() | nil
+  def usage_page_name(usage_page) do
+    case usage_pages() do
+      %{^usage_page => %{name: name}} -> name
+      _ -> nil
+    end
+  end
+
+  @doc """
+  Returns the name of a usage within a usage page, or `nil` if it is not in the
+  usage tables.
+
+  ## Examples
+
+      iex> HidParser.ReportDescriptor.usage_name(1, 6)
+      "Keyboard"
+
+  """
+  @spec usage_name(integer(), integer()) :: String.t() | nil
+  def usage_name(usage_page, usage_id) do
+    case usage_pages() do
+      %{^usage_page => %{usage_ids: %{^usage_id => %{name: name}}}} -> name
+      _ -> nil
+    end
+  end
+
   def parse_items(binary) when is_binary(binary) do
     binary |> parse_items([])
   end

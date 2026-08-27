@@ -31,9 +31,28 @@ defmodule HidParser.ReportDescriptorTest do
   }
 
   doctest HidParser
+  doctest HidParser.ReportDescriptor
 
   test "usage pages" do
     assert %{1 => %{name: "Generic Desktop"}} = HidParser.ReportDescriptor.usage_pages()
+  end
+
+  describe "usage lookup" do
+    test "usage page name" do
+      assert HidParser.ReportDescriptor.usage_page_name(1) == "Generic Desktop"
+    end
+
+    test "usage name" do
+      assert HidParser.ReportDescriptor.usage_name(1, 6) == "Keyboard"
+    end
+
+    test "missing usage page" do
+      assert HidParser.ReportDescriptor.usage_page_name(0xFFFF) == nil
+    end
+
+    test "missing usage" do
+      assert HidParser.ReportDescriptor.usage_name(1, 0xFFFF) == nil
+    end
   end
 
   test "parse binary only" do
