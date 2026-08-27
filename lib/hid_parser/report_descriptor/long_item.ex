@@ -13,6 +13,7 @@ defmodule HidParser.ReportDescriptor.LongItem do
   @doc """
   Builds a long item from its tag and data bytes.
   """
+  @spec new(integer(), binary()) :: t()
   def new(tag, data) when is_integer(tag) and is_binary(data) do
     %__MODULE__{tag: tag, data: data}
   end

@@ -26,13 +26,13 @@ defmodule HidParser.ReportFixtureTest do
       {:ok, descriptor} = HidParser.ReportDescriptor.parse(descriptor)
       {:ok, codec} = HidParser.ReportCodec.compile(descriptor)
 
-      for {id, fields} <- codec.reports, roundtrippable?(fields) do
-        report = %HidParser.Report{report_id: id, values: values_for(fields)}
+      for {{type, id}, fields} <- codec.reports, roundtrippable?(fields) do
+        report = %HidParser.Report{type: type, report_id: id, values: values_for(fields)}
 
         assert {:ok, binary} = HidParser.ReportCodec.encode(codec, report),
                "#{file}[#{index}] report #{id}: encode failed"
 
-        assert {:ok, decoded} = HidParser.ReportCodec.decode(codec, binary),
+        assert {:ok, decoded} = HidParser.ReportCodec.decode(codec, binary, type),
                "#{file}[#{index}] report #{id}: decode failed"
 
         assert decoded == report, "#{file}[#{index}] report #{id}: roundtrip mismatch"

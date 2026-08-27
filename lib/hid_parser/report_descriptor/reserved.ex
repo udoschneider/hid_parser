@@ -13,6 +13,7 @@ defmodule HidParser.ReportDescriptor.Reserved do
   @doc """
   Builds a reserved item from its raw bytes.
   """
+  @spec new(binary()) :: t()
   def new(raw) when is_binary(raw) do
     %__MODULE__{raw: raw}
   end

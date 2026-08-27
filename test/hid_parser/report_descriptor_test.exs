@@ -62,11 +62,27 @@ defmodule HidParser.ReportDescriptorTest do
   end
 
   test "parse non-binary" do
-    assert_raise(FunctionClauseError, fn -> ReportDescriptor.parse(:foo) end)
+    assert apply(ReportDescriptor, :parse, [:foo]) ==
+             {:error, %HidParser.Error{reason: :invalid_descriptor}}
   end
 
   test "parse malformed descriptor" do
     assert ReportDescriptor.parse(<<0x05>>) ==
+             {:error, %HidParser.Error{reason: :invalid_descriptor}}
+  end
+
+  test "parse rejects unclosed collections" do
+    assert ReportDescriptor.parse(<<0xA1, 0x01>>) ==
+             {:error, %HidParser.Error{reason: :invalid_descriptor}}
+  end
+
+  test "parse rejects a stray EndCollection" do
+    assert ReportDescriptor.parse(<<0xC0>>) ==
+             {:error, %HidParser.Error{reason: :invalid_descriptor}}
+  end
+
+  test "parse rejects a stray EndCollection followed by more items" do
+    assert ReportDescriptor.parse(<<0xC0, 0x05, 0x01>>) ==
              {:error, %HidParser.Error{reason: :invalid_descriptor}}
   end
 
@@ -80,7 +96,8 @@ defmodule HidParser.ReportDescriptorTest do
     end
 
     test "collection" do
-      assert items(<<0b1010_00_01, 0x03>>) == [%Collection{flags: 3, items: [], end_flags: 0}]
+      assert items(<<0b1010_00_01, 0x03, 0xC0>>) ==
+               [%Collection{flags: 3, items: [], end_flags: 0}]
     end
   end
 

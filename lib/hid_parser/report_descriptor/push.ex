@@ -12,5 +12,6 @@ defmodule HidParser.ReportDescriptor.Push do
   @doc """
   Builds a push item (no data).
   """
+  @spec new(binary()) :: t()
   def new(data) when is_binary(data), do: %__MODULE__{}
 end

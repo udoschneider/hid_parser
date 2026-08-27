@@ -12,6 +12,7 @@ defmodule HidParser.ReportDescriptor.EndCollection do
   @doc """
   Builds an end-of-collection item (no data).
   """
+  @spec new(binary()) :: t()
   def new(<<>>) do
     %__MODULE__{}
   end

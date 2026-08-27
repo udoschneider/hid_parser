@@ -17,6 +17,7 @@ defmodule HidParser.ReportDescriptor.Item do
   """
 
   @doc false
+  @spec __using__(keyword()) :: Macro.t()
   defmacro __using__(opts) do
     decoder = Keyword.get(opts, :decoder, :parse_unsigned)
 
@@ -30,6 +31,7 @@ defmodule HidParser.ReportDescriptor.Item do
           @doc """
           Builds a struct from the item's raw data bytes.
           """
+          @spec new(binary()) :: t()
           def new(data) when is_binary(data) do
             %__MODULE__{
               value: apply(HidParser.ReportDescriptor.Helper, unquote(decoder), [data])
@@ -46,6 +48,7 @@ defmodule HidParser.ReportDescriptor.Item do
           @doc """
           Builds a struct from the item's raw data bytes.
           """
+          @spec new(binary()) :: t()
           def new(data) when is_binary(data) do
             %__MODULE__{
               flags: apply(HidParser.ReportDescriptor.Helper, unquote(decoder), [data])

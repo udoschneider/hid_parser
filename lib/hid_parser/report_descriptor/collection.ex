@@ -14,6 +14,7 @@ defmodule HidParser.ReportDescriptor.Collection do
   @doc """
   Builds a collection from the item's data bytes (the collection type).
   """
+  @spec new(binary()) :: t()
   def new(data) when is_binary(data) do
     %__MODULE__{flags: HidParser.ReportDescriptor.Helper.parse_unsigned(data)}
   end

@@ -8,7 +8,7 @@ The API is a three-stage pipeline:
 ```elixir
 {:ok, descriptor} = HidParser.ReportDescriptor.parse(descriptor_bytes)   # syntax
 {:ok, codec}      = HidParser.ReportCodec.compile(descriptor, vid: vid, pid: pid) # semantics
-{:ok, report}     = HidParser.ReportCodec.decode(codec, report_bytes)    # runtime
+{:ok, report}     = HidParser.ReportCodec.decode(codec, report_bytes)    # runtime (input stream)
 {:ok, binary}     = HidParser.ReportCodec.encode(codec, report)          # runtime
 ```
 
@@ -85,22 +85,23 @@ iex> HidParser.ReportDescriptor.usage_name(7, 0x04)
 
 `HidParser.ReportCodec.compile/2` resolves global/local item state, `Push`/`Pop`,
 collection nesting, report IDs and usage inheritance into a
-`%HidParser.ReportCodec{}` — flat field lists, one per report id:
+`%HidParser.ReportCodec{}` — flat field lists, one per report type and id:
 
 ```elixir
 {:ok, codec} = HidParser.ReportCodec.compile(descriptor, vid: 0x046A, pid: 0x00B0)
 
 %HidParser.ReportCodec{
   vid: 0x046A, pid: 0x00B0,
-  reports: %{1 => [%HidParser.ReportCodec.Field{}, ...]},
+  reports: %{{:input, 1} => [%HidParser.ReportCodec.Field{}, ...]},
   uses_report_id?: true
 }
 ```
 
-Each `HidParser.ReportCodec.Field` carries its type, bit offset/size/count,
-signedness, decoded flags, logical/physical range, unit, and usages. A descriptor
-without report IDs has a single report keyed `0` and `uses_report_id?: false`.
-An unbalanced `Push`/`Pop` returns
+Input, Output and Feature reports are three separate bit streams, so `reports`
+is keyed by `{type, report_id}`. Each `HidParser.ReportCodec.Field` carries its
+type, bit offset/size/count, signedness, decoded flags, logical/physical range,
+unit, and usages. A descriptor without report IDs has a single report keyed
+`{type, 0}` and `uses_report_id?: false`. An unbalanced `Push`/`Pop` returns
 `{:error, %HidParser.Error{reason: :pop_without_push | :push_without_pop}}`.
 
 ---
@@ -109,12 +110,13 @@ An unbalanced `Push`/`Pop` returns
 
 ## Decode
 
-`HidParser.ReportCodec.decode/2` turns report bytes into a `%HidParser.Report{}`:
+`HidParser.ReportCodec.decode/3` turns report bytes into a `%HidParser.Report{}`:
 
 ```elixir
-{:ok, report} = HidParser.ReportCodec.decode(codec, report_bytes)
+{:ok, report} = HidParser.ReportCodec.decode(codec, report_bytes, :input)
 
 %HidParser.Report{
+  type: :input,
   report_id: 1,
   values: [
     %HidParser.Report.Value{field: modifiers, index: 0, logical: 1},
@@ -123,6 +125,11 @@ An unbalanced `Push`/`Pop` returns
   ]
 }
 ```
+
+The third argument selects the report stream (`:input`, `:output` or
+`:feature`) and defaults to `:input`. The report's byte length must match the
+field layout exactly, or `decode/3` returns
+`{:error, %HidParser.Error{reason: :report_size_mismatch}}`.
 
 There is one `HidParser.Report.Value` per *element*. Only the logical integer is
 stored — lossless and roundtrippable; constant/padding fields are skipped.
@@ -134,6 +141,8 @@ stored — lossless and roundtrippable; constant/padding fields are skipped.
 ```elixir
 {:ok, binary} = HidParser.ReportCodec.encode(codec, report)
 ```
+
+The report's `type` selects the stream to encode into.
 
 `encode(decode(binary)) == binary` holds (for reports whose constant bits are
 zero). `encode` validates the values against the codec and returns
@@ -175,9 +184,10 @@ descriptor = <<
 {:ok, descriptor} = HidParser.ReportDescriptor.parse(descriptor)
 {:ok, codec}      = HidParser.ReportCodec.compile(descriptor)
 
-[modifiers, _padding, keys] = codec.reports[1]
+[modifiers, _padding, keys] = codec.reports[{:input, 1}]
 
 report = %HidParser.Report{
+  type: :input,
   report_id: 1,
   values: [
     %HidParser.Report.Value{field: modifiers, index: 0, logical: 1},
@@ -195,10 +205,10 @@ report = %HidParser.Report{
 
 All failures are `{:error, %HidParser.Error{reason: ..., detail: ...}}`. `reason`
 is one of `:invalid_descriptor`, `:pop_without_push`, `:push_without_pop`,
-`:empty_report`, `:no_reports`, `:unknown_report_id`, `:field_mismatch`,
-`:missing_values`, `:value_count_mismatch`, or `:out_of_range`; `detail` carries
-the context (the offending id, field, or value). `HidParser.Error` implements
-`Exception`, so it can also be `raise`d.
+`:empty_report`, `:no_reports`, `:report_size_mismatch`, `:unknown_report_id`,
+`:field_mismatch`, `:missing_values`, `:value_count_mismatch`, or
+`:out_of_range`; `detail` carries the context (the offending id, field, or
+value). `HidParser.Error` implements `Exception`, so it can also be `raise`d.
 
 # Inspecting
 
@@ -219,7 +229,11 @@ iex> inspect(report, custom_options: [verbose: true])
   contributes N consecutive values of `size` bits each.
 - **Signedness** — a field is signed iff `logical_min < 0`.
 - **Report ID** — when the descriptor uses `ReportId`, the first byte of every
-  report is the id.
+  report is the id. A declared `ReportId 0` is treated as "no report id".
+- **Report streams** — input, output and feature reports are independent bit
+  streams; `decode/3` takes the stream type so the three never mix.
+- **Length validation** — `decode/3` rejects reports shorter or longer than the
+  field layout (`:report_size_mismatch`) instead of silently padding/truncating.
 - **Constant/padding fields** roundtrip as *zero* bits; a device padding with
   non-zero constant bits will not roundtrip bit-exactly.
 - **Collections** — offsets are computed across collection boundaries; collection

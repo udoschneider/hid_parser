@@ -3,7 +3,7 @@ defmodule HidParser.Error do
   A structured error returned by the report-model pipeline.
 
   `HidParser.ReportDescriptor.parse/1`, `HidParser.ReportCodec.compile/2`,
-  `HidParser.ReportCodec.decode/2` and `HidParser.ReportCodec.encode/2` return
+  `HidParser.ReportCodec.decode/3` and `HidParser.ReportCodec.encode/2` return
   `{:error, %HidParser.Error{}}` rather than raising, so callers match on
   `reason` and inspect the associated `detail`. It implements `Exception`, so it
   can also be `raise`d when that fits a caller's control flow.
@@ -15,6 +15,7 @@ defmodule HidParser.Error do
     * `:push_without_pop` — a `Push` never popped (compile).
     * `:empty_report` — empty binary with a report-id descriptor (decode).
     * `:no_reports` — the codec has no reports (decode).
+    * `:report_size_mismatch` — report bytes are shorter/longer than the field layout; `detail` is `{expected_bytes, actual_bytes}` (decode).
     * `:unknown_report_id` — report id not in the codec; `detail` is the id.
     * `:field_mismatch` — a value references a field not in the report; `detail` is the field.
     * `:missing_values` — a non-constant field has no values; `detail` is the field.
@@ -28,6 +29,7 @@ defmodule HidParser.Error do
           | :push_without_pop
           | :empty_report
           | :no_reports
+          | :report_size_mismatch
           | :unknown_report_id
           | :field_mismatch
           | :missing_values

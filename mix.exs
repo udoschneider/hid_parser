@@ -7,8 +7,20 @@ defmodule HidParser.MixProject do
       version: "0.1.0",
       elixir: "~> 1.20",
       start_permanent: Mix.env() == :prod,
+      # Dialyzer needs :syntax_tools (via :cerl_prettypr) to format warnings,
+      # which code path pruning strips out. Keep pruning only for :prod.
+      prune_code_paths: Mix.env() == :prod,
       deps: deps(),
-      aliases: [compile: ["hid_parser.fetch_usage_tables", "compile"]]
+      aliases: [compile: ["hid_parser.fetch_usage_tables", "compile"]],
+      dialyzer: dialyzer()
+    ]
+  end
+
+  # The Mix tasks in lib/mix/tasks call Mix.shell/0, Mix.raise/1 and :crypto,
+  # none of which are in the default PLT.
+  defp dialyzer do
+    [
+      plt_add_apps: [:mix, :crypto]
     ]
   end
 

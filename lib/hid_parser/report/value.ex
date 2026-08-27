@@ -43,6 +43,11 @@ defmodule HidParser.Report.Value do
   def physical(%__MODULE__{field: %Field{physical_min: nil}}), do: nil
   def physical(%__MODULE__{field: %Field{physical_max: nil}}), do: nil
 
+  # An explicit physical range of 0..0 means "physical equals logical"
+  # (HID 1.11 §6.2.2.7); it is the idiomatic way to *reset* a previous range.
+  def physical(%__MODULE__{field: %Field{physical_min: 0, physical_max: 0}, logical: logical}),
+    do: logical * 1.0
+
   def physical(%__MODULE__{field: %Field{logical_min: lo, logical_max: hi}}) when hi == lo,
     do: nil
 

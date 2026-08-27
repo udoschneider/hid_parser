@@ -61,7 +61,8 @@ defmodule HidParser.ReportDescriptor do
   Parses a report descriptor binary into a `t:t/0` collection tree.
 
   Returns `{:error, %HidParser.Error{reason: :invalid_descriptor}}` for a
-  malformed or truncated descriptor.
+  malformed or truncated descriptor — including unbalanced `Collection` /
+  `EndCollection` nesting and non-binary input.
 
   ## Examples
 
@@ -73,11 +74,16 @@ defmodule HidParser.ReportDescriptor do
   """
   @spec parse(binary()) :: {:ok, t()} | {:error, HidParser.Error.t()}
   def parse(binary) when is_binary(binary) do
-    {:ok, %__MODULE__{items: binary |> parse_items() |> parse_collections()}}
-  rescue
-    MatchError -> {:error, HidParser.Error.exception(reason: :invalid_descriptor)}
-    FunctionClauseError -> {:error, HidParser.Error.exception(reason: :invalid_descriptor)}
+    with {:ok, items} <- parse_items(binary),
+         {:ok, tree} <- parse_collections(items) do
+      {:ok, %__MODULE__{items: tree}}
+    else
+      {:error, :invalid_descriptor} ->
+        {:error, HidParser.Error.exception(reason: :invalid_descriptor)}
+    end
   end
+
+  def parse(_other), do: {:error, HidParser.Error.exception(reason: :invalid_descriptor)}
 
   @doc """
   Returns the HID usage tables, parsed from `priv/static/HidUsageTables.json`.
@@ -86,6 +92,7 @@ defmodule HidParser.ReportDescriptor do
   only read (and decoded) when it is actually needed, and never during
   compilation.
   """
+  @spec usage_pages() :: map()
   def usage_pages() do
     :persistent_term.get({__MODULE__, :usage_pages}, nil) || load_usage_pages()
   end
@@ -134,43 +141,79 @@ defmodule HidParser.ReportDescriptor do
     end
   end
 
-  defp parse_items(binary) when is_binary(binary) do
-    binary |> parse_items([])
-  end
+  defp parse_items(binary) when is_binary(binary), do: parse_items(binary, [])
 
-  defp parse_items(<<>>, acc), do: Enum.reverse(acc)
+  defp parse_items(<<>>, acc), do: {:ok, Enum.reverse(acc)}
 
   # Long item (HID 1.11 §6.2.2.3): 0xFF prefix, then an 8-bit tag and 8-bit data size.
   defp parse_items(<<0xFF, tag::8, data_size::8, bytes::binary>>, acc) do
-    <<data::binary-size(^data_size), rest::binary>> = bytes
-    parse_items(rest, [LongItem.new(tag, data) | acc])
+    case bytes do
+      <<data::binary-size(^data_size), rest::binary>> ->
+        parse_items(rest, [LongItem.new(tag, data) | acc])
+
+      _ ->
+        {:error, :invalid_descriptor}
+    end
   end
 
   # credo:disable-for-next-line Credo.Check.Readability.VariableNames
   defp parse_items(<<bTag::4, bType::2, bSize::2, bytes::binary>>, acc) do
     size = Helper.shortsize_expand(bSize)
-    <<data::binary-size(^size), rest::binary>> = bytes
-    raw = <<bTag::4, bType::2, bSize::2>> <> data
-    item = new_item(bType, bTag, data, raw)
-    parse_items(rest, [item | acc])
+
+    case bytes do
+      <<data::binary-size(^size), rest::binary>> ->
+        raw = <<bTag::4, bType::2, bSize::2>> <> data
+
+        case decode_item(bType, bTag, data, raw) do
+          {:ok, item} -> parse_items(rest, [item | acc])
+          {:error, :invalid_descriptor} -> {:error, :invalid_descriptor}
+        end
+
+      _ ->
+        {:error, :invalid_descriptor}
+    end
+  end
+
+  # Decodes one item from its tag/type/data. Item decoders reject data sizes they
+  # don't expect (e.g. `UnitExponent` with a 2-byte body), so this is where
+  # malformed *item bodies* are caught — the rescue is scoped to decoding rather
+  # than wrapping the whole parse.
+  defp decode_item(bType, bTag, data, raw) do
+    {:ok, new_item(bType, bTag, data, raw)}
+  rescue
+    _e in [FunctionClauseError, MatchError] -> {:error, :invalid_descriptor}
   end
 
   # Builds the nested collection tree from a flat list of items: each `Collection`
   # accumulates its child items into `items` and records the matching
-  # `EndCollection` flags in `end_flags`.
+  # `EndCollection` flags in `end_flags`. Structurally invalid nesting — an
+  # unclosed `Collection`, or a stray `EndCollection` — is rejected rather than
+  # silently dropped or half-tolerated.
   defp parse_collections(items) when is_list(items) do
-    {acc, _end_flags, []} = parse_nodes(items, [])
-    Enum.reverse(acc)
+    case parse_nodes(items, []) do
+      {:open, acc} -> {:ok, Enum.reverse(acc)}
+      {:closed, _acc, _flags, _remaining} -> {:error, :invalid_descriptor}
+      {:error, :invalid_descriptor} = err -> err
+    end
   end
 
-  defp parse_nodes([], acc), do: {acc, nil, []}
+  defp parse_nodes([], acc), do: {:open, acc}
 
-  defp parse_nodes([%EndCollection{flags: flags} | rest], acc), do: {acc, flags, rest}
+  defp parse_nodes([%EndCollection{flags: flags} | rest], acc),
+    do: {:closed, acc, flags, rest}
 
   defp parse_nodes([%Collection{} = col | rest], acc) do
-    {children, end_flags, remaining} = parse_nodes(rest, [])
-    col = %{col | items: Enum.reverse(children), end_flags: end_flags || 0}
-    parse_nodes(remaining, [col | acc])
+    case parse_nodes(rest, []) do
+      {:open, _children} ->
+        {:error, :invalid_descriptor}
+
+      {:closed, children, end_flags, remaining} ->
+        col = %{col | items: Enum.reverse(children), end_flags: end_flags}
+        parse_nodes(remaining, [col | acc])
+
+      {:error, :invalid_descriptor} = err ->
+        err
+    end
   end
 
   defp parse_nodes([item | rest], acc), do: parse_nodes(rest, [item | acc])

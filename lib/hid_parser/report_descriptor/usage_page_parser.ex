@@ -10,6 +10,7 @@ defmodule HidParser.ReportDescriptor.UsagePageParser do
   @doc """
   Parses the usage tables JSON file at `path` into `%{page_id => page}`.
   """
+  @spec parse(Path.t()) :: map()
   def parse(path) do
     path
     |> File.read!()

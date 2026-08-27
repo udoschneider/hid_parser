@@ -4,10 +4,11 @@ Elixir library that parses USB HID report descriptors (HID 1.11 spec) into struc
 
 ## Architecture
 
-- Three stages: `HidParser.ReportDescriptor.parse/1` (bytes → `%ReportDescriptor{}` tree) → `HidParser.ReportCodec.compile/2` (tree → `%ReportCodec{}` fields) → `HidParser.ReportCodec.decode/2` / `encode/2` (bytes ⇄ `%HidParser.Report{}`). All four return `{:ok, _} | {:error, %HidParser.Error{}}`.
-- `HidParser.ReportDescriptor.parse/1` builds the collection tree via private `parse_items/1` (flat) and `parse_collections/1` (tree) in `lib/hid_parser/report_descriptor.ex`; the flat form is internal only.
+- Three stages: `HidParser.ReportDescriptor.parse/1` (bytes → `%ReportDescriptor{}` tree) → `HidParser.ReportCodec.compile/2` (tree → `%ReportCodec{}` fields) → `HidParser.ReportCodec.decode/3` / `encode/2` (bytes ⇄ `%HidParser.Report{}`). All four return `{:ok, _} | {:error, %HidParser.Error{}}`.
+- `HidParser.ReportDescriptor.parse/1` builds the collection tree via private `parse_items/1` (flat) and `parse_collections/1` (tree) in `lib/hid_parser/report_descriptor.ex`; the flat form is internal only. `parse/1` returns `{:error, :invalid_descriptor}` for truncated descriptors and unbalanced `Collection`/`EndCollection` nesting.
 - One module per descriptor item type under `HidParser.ReportDescriptor.*` (e.g. `Input`, `Usage`, `LogicalMaximum`, `Collection`). Item tag/bits are decoded in `report_descriptor.ex`'s `new_item/4`.
 - The report model lives in `HidParser.ReportCodec` (`lib/hid_parser/report_codec.ex`) with the compiled `HidParser.ReportCodec.Field`; report data is `HidParser.Report` + `HidParser.Report.Value` (`lib/hid_parser/report*.ex`). Errors are `HidParser.Error` (`lib/hid_parser/error.ex`).
+- Input/Output/Feature are three separate bit streams: `ReportCodec.reports` is keyed by `{type, report_id}`, `decode/3` takes the stream type (defaulting to `:input`), and `%Report{}` carries `type` so `encode/2` knows which stream to pack into.
 - Struct field convention (verify against `lib/hid_parser/report_descriptor/*.ex` before adding a new item):
   - Global/Local items → `value` (integer)
   - `Push`/`Pop` → no fields (empty struct; they carry no data)

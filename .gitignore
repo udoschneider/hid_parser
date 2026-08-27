@@ -22,7 +22,7 @@ erl_crash.dump
 # Ignore package tarball (built via "mix hex.build").
 hid_parser-*.tar
 
-# Fetched at compile time by Mix.Tasks.Compile.UsageTables.
+# Fetched at compile time by Mix.Tasks.HidParser.FetchUsageTables.
 /priv/static/HidUsageTables.json
 
 # Fetched at test time by Mix.Tasks.HidParser.FetchFixtures (hid-tools, GPL-2.0).
