@@ -104,6 +104,25 @@ unit, and usages. A descriptor without report IDs has a single report keyed
 `{type, 0}` and `uses_report_id?: false`. An unbalanced `Push`/`Pop` returns
 `{:error, %HidParser.Error{reason: :pop_without_push | :push_without_pop}}`.
 
+### Usage resolution
+
+`compile/2` also resolves local `Usage` items into per-field usages:
+`Field.usage_page` is shared by every element of the field, while `Field.usages`
+holds the ids.
+
+- A single `Usage` → `[id]`: the one id applies to every element.
+- Multiple `Usage` items → one id per element in declaration order, the last
+  repeating when there are fewer usages than `count`.
+- `UsageMinimum`/`UsageMaximum` on a **variable** field → `count` per-element
+  ids, clamped at the declared maximum (the last id repeats past it).
+- `UsageMinimum`/`UsageMaximum` on an **array** field → the full `min..max`
+  domain; an array element's report value *is* the usage id it selects.
+- No local usage → inherited from the nearest enclosing collection that declares
+  one.
+- An extended (32-bit) `Usage`/`UsageMinimum`/`UsageMaximum` carries its own
+  usage page in the high 16 bits, overriding the current `UsagePage` global.
+- A `Delimiter` (open set) suppresses the alternate usages that follow it.
+
 ---
 
 # Stage 3 — Decoding and encoding reports
@@ -167,6 +186,11 @@ iex> value = %HidParser.Report.Value{field: field, index: 0, logical: 50}
 iex> HidParser.Report.Value.physical(value)
 500.0
 ```
+
+`physical/1` maps linearly: `logical * (phys_max - phys_min) / (log_max -
+log_min) + phys_min`. It returns `nil` when the field has no physical range or a
+degenerate logical range, and equals `logical` when the physical range is
+explicitly `0..0` (the idiomatic way to reset a previous range).
 
 ## A complete example
 
@@ -237,7 +261,9 @@ iex> inspect(report, custom_options: [verbose: true])
 - **Constant/padding fields** roundtrip as *zero* bits; a device padding with
   non-zero constant bits will not roundtrip bit-exactly.
 - **Collections** — offsets are computed across collection boundaries; collection
-  usages apply to contained fields that declare none.
+  usages apply to contained fields that declare none; malformed nesting (an
+  unclosed collection or a stray `EndCollection`) is rejected with
+  `:invalid_descriptor`.
 
 ---
 
