@@ -1,0 +1,11 @@
+defmodule HidParser.ReportDescriptor.Unit do
+  # Global
+
+  @type t :: %__MODULE__{value: integer()}
+
+  defstruct value: 0
+
+  def new(data) when is_binary(data) do
+    %__MODULE__{value: HidParser.Helper.parse_main_flags(data)}
+  end
+end

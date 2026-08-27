@@ -1,18 +1,4 @@
 defmodule HidParser do
-  @moduledoc """
-  Documentation for `HidParser`.
-  """
-
-  @doc """
-  Hello world.
-
-  ## Examples
-
-      iex> HidParser.hello()
-      :world
-
-  """
-  def hello do
-    :world
-  end
+  def parse_report_descriptor(binary) when is_binary(binary),
+    do: HidParser.ReportDescriptor.parse_items(binary)
 end
