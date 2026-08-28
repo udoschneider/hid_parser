@@ -359,8 +359,8 @@ defmodule HidParser.ReportCodec do
   to `:input`.
 
   Returns `{:error, %HidParser.Error{}}` for an empty report, a report whose
-  byte length does not match the field layout, an unknown report id, or a codec
-  with no reports.
+  byte length does not match the field layout, an unknown report id, or
+  non-binary input.
   """
   @spec decode(t(), binary(), report_type()) :: {:ok, Report.t()} | {:error, Error.t()}
   def decode(codec, data, type \\ :input)
@@ -377,9 +377,14 @@ defmodule HidParser.ReportCodec do
     # stream. A direct lookup avoids a `CaseClauseError` on an unexpected key set.
     case Map.fetch(codec.reports, {type, 0}) do
       {:ok, _fields} -> decode_report(codec, {type, 0}, data)
-      :error -> {:error, Error.exception(reason: :no_reports)}
+      :error -> {:error, Error.exception(reason: :unknown_report_id, detail: 0)}
     end
   end
+
+  # Non-binary input is rejected rather than raising a `FunctionClauseError`,
+  # mirroring `parse/1`'s graceful handling of non-binary descriptors.
+  def decode(%__MODULE__{}, _data, _type),
+    do: {:error, Error.exception(reason: :invalid_report)}
 
   defp decode_report(codec, {type, id}, data) do
     case Map.fetch(codec.reports, {type, id}) do

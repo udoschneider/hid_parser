@@ -43,6 +43,22 @@ defmodule HidParser.ReportDescriptorTest do
     assert %{1 => %{name: "Generic Desktop"}} = ReportDescriptor.usage_pages()
   end
 
+  test "usage pages degrade to an empty table when the JSON is missing" do
+    path = "priv/static/HidUsageTables.json"
+    backup = path <> ".bak"
+
+    on_exit(fn ->
+      if File.exists?(backup), do: File.rename!(backup, path)
+      :persistent_term.erase({ReportDescriptor, :usage_pages})
+    end)
+
+    File.rename!(path, backup)
+    :persistent_term.erase({ReportDescriptor, :usage_pages})
+
+    assert ReportDescriptor.usage_pages() == %{}
+    assert ReportDescriptor.usage_name(1, 6) == nil
+  end
+
   describe "usage lookup" do
     test "usage page name" do
       assert ReportDescriptor.usage_page_name(1) == "Generic Desktop"
@@ -150,6 +166,16 @@ defmodule HidParser.ReportDescriptorTest do
       assert items(<<0xB4>>) == [%Pop{}]
     end
 
+    test "push with a body is rejected" do
+      assert ReportDescriptor.parse(<<0xA5, 0x01>>) ==
+               {:error, %HidParser.Error{reason: :invalid_descriptor}}
+    end
+
+    test "pop with a body is rejected" do
+      assert ReportDescriptor.parse(<<0xB5, 0x01>>) ==
+               {:error, %HidParser.Error{reason: :invalid_descriptor}}
+    end
+
     test "reserved" do
       assert items(<<0xC5, 0x01>>) == [%HidParser.ReportDescriptor.Reserved{raw: <<0xC5, 0x01>>}]
     end
@@ -233,7 +259,11 @@ defmodule HidParser.ReportDescriptorTest do
     end
 
     test "long item with no data" do
-      assert items(<<0xFF, 0x01, 0x00>>) == [%LongItem{tag: 1, data: <<>>}]
+      assert items(<<0xFF, 0x00, 0x01>>) == [%LongItem{tag: 1, data: <<>>}]
+    end
+
+    test "long item data size precedes the tag" do
+      assert items(<<0xFF, 0x02, 0x05, 0xAA, 0xBB>>) == [%LongItem{tag: 5, data: <<0xAA, 0xBB>>}]
     end
 
     test "long item followed by a short item" do

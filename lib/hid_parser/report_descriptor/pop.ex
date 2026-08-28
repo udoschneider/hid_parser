@@ -13,5 +13,5 @@ defmodule HidParser.ReportDescriptor.Pop do
   Builds a pop item (no data).
   """
   @spec new(binary()) :: t()
-  def new(data) when is_binary(data), do: %__MODULE__{}
+  def new(<<>>), do: %__MODULE__{}
 end

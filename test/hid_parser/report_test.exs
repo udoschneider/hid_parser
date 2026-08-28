@@ -708,7 +708,38 @@ defmodule HidParser.ReportTest do
     test "decode errors on a codec with no reports" do
       codec = codec(<<0x05, 0x01>>)
 
-      assert ReportCodec.decode(codec, <<>>) == {:error, %Error{reason: :no_reports}}
+      assert ReportCodec.decode(codec, <<>>) ==
+               {:error, %Error{reason: :unknown_report_id, detail: 0}}
+    end
+
+    test "decode errors on a missing report stream" do
+      descriptor = <<
+        0x05,
+        0x01,
+        0x09,
+        0x30,
+        0x15,
+        0x00,
+        0x25,
+        0xFF,
+        0x75,
+        0x08,
+        0x95,
+        0x01,
+        0x81,
+        0x02
+      >>
+
+      codec = codec(descriptor)
+
+      assert ReportCodec.decode(codec, <<0x00>>, :output) ==
+               {:error, %Error{reason: :unknown_report_id, detail: 0}}
+    end
+
+    test "decode errors on non-binary data" do
+      codec = codec(@keyboard)
+
+      assert ReportCodec.decode(codec, :not_a_binary) == {:error, %Error{reason: :invalid_report}}
     end
 
     test "input, output and feature decode/encode separately" do

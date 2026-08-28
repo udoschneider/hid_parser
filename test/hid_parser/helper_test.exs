@@ -28,6 +28,7 @@ defmodule HidParser.ReportDescriptor.HelperTest do
                non_linear: false,
                no_preferred: false,
                null_state: false,
+               volatile: false,
                buffered_bytes: false
              }
     end
@@ -36,6 +37,10 @@ defmodule HidParser.ReportDescriptor.HelperTest do
       flags = Helper.decode_flags(0x03)
       assert flags.constant
       assert flags.variable
+    end
+
+    test "volatile" do
+      assert Helper.decode_flags(0x080).volatile
     end
 
     test "buffered bytes" do

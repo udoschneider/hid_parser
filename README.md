@@ -229,7 +229,7 @@ report = %HidParser.Report{
 
 All failures are `{:error, %HidParser.Error{reason: ..., detail: ...}}`. `reason`
 is one of `:invalid_descriptor`, `:pop_without_push`, `:push_without_pop`,
-`:empty_report`, `:no_reports`, `:report_size_mismatch`, `:unknown_report_id`,
+`:empty_report`, `:invalid_report`, `:report_size_mismatch`, `:unknown_report_id`,
 `:field_mismatch`, `:missing_values`, `:value_count_mismatch`, or
 `:out_of_range`; `detail` carries the context (the offending id, field, or
 value). `HidParser.Error` implements `Exception`, so it can also be `raise`d.

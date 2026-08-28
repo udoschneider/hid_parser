@@ -98,12 +98,20 @@ defmodule HidParser.ReportDescriptor do
   end
 
   defp load_usage_pages() do
-    pages =
-      Application.app_dir(:hid_parser, @usage_pages_file)
-      |> HidParser.ReportDescriptor.UsagePageParser.parse()
+    pages = load_usage_pages_from_disk()
 
     :persistent_term.put({__MODULE__, :usage_pages}, pages)
     pages
+  end
+
+  # The usage tables may be absent (an offline build that never fetched the
+  # JSON). `inspect` and name lookups must degrade to the hex-label fallback
+  # rather than raising `File.Error` from disk IO.
+  defp load_usage_pages_from_disk() do
+    Application.app_dir(:hid_parser, @usage_pages_file)
+    |> HidParser.ReportDescriptor.UsagePageParser.parse()
+  rescue
+    File.Error -> %{}
   end
 
   @doc """
@@ -145,8 +153,8 @@ defmodule HidParser.ReportDescriptor do
 
   defp parse_items(<<>>, acc), do: {:ok, Enum.reverse(acc)}
 
-  # Long item (HID 1.11 §6.2.2.3): 0xFF prefix, then an 8-bit tag and 8-bit data size.
-  defp parse_items(<<0xFF, tag::8, data_size::8, bytes::binary>>, acc) do
+  # Long item (HID 1.11 §6.2.2.3): 0xFF prefix, then an 8-bit data size and 8-bit tag.
+  defp parse_items(<<0xFF, data_size::8, tag::8, bytes::binary>>, acc) do
     case bytes do
       <<data::binary-size(^data_size), rest::binary>> ->
         parse_items(rest, [LongItem.new(tag, data) | acc])

@@ -14,7 +14,7 @@ defmodule HidParser.Error do
     * `:pop_without_push` — a `Pop` with no matching `Push` (compile).
     * `:push_without_pop` — a `Push` never popped (compile).
     * `:empty_report` — empty binary with a report-id descriptor (decode).
-    * `:no_reports` — the codec has no reports (decode).
+    * `:invalid_report` — report bytes are not a binary (decode).
     * `:report_size_mismatch` — report bytes are shorter/longer than the field layout; `detail` is `{expected_bytes, actual_bytes}` (decode).
     * `:unknown_report_id` — report id not in the codec; `detail` is the id.
     * `:field_mismatch` — a value references a field not in the report; `detail` is the field.
@@ -28,7 +28,7 @@ defmodule HidParser.Error do
           | :pop_without_push
           | :push_without_pop
           | :empty_report
-          | :no_reports
+          | :invalid_report
           | :report_size_mismatch
           | :unknown_report_id
           | :field_mismatch

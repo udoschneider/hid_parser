@@ -132,6 +132,7 @@ defmodule HidParser.ReportDescriptor.Helper do
     * `:non_linear` — bit 4 (vs Linear)
     * `:no_preferred` — bit 5 (vs Preferred State)
     * `:null_state` — bit 6 (vs No Null Position)
+    * `:volatile` — bit 7 (vs Non Volatile)
     * `:buffered_bytes` — bit 8 (vs Bit Field)
 
   ## Examples
@@ -150,6 +151,7 @@ defmodule HidParser.ReportDescriptor.Helper do
       non_linear: (flags &&& 0x010) != 0,
       no_preferred: (flags &&& 0x020) != 0,
       null_state: (flags &&& 0x040) != 0,
+      volatile: (flags &&& 0x080) != 0,
       buffered_bytes: (flags &&& 0x100) != 0
     }
   end

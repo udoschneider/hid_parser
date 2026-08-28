@@ -58,10 +58,15 @@ defmodule Mix.Tasks.HidParser.FetchUsageTables do
       )
 
     if status != 0 do
-      Mix.raise("Failed to download HID Usage Tables (curl exit #{status}):\n#{output}")
-    end
+      File.rm(@target_path)
 
-    verify_checksum!()
+      Mix.shell().error(
+        "Failed to download HID Usage Tables (curl exit #{status}); continuing without them " <>
+          "(usage names will fall back to hex labels):\n#{output}"
+      )
+    else
+      verify_checksum!()
+    end
   end
 
   defp verify_checksum! do
