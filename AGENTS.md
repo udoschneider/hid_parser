@@ -47,4 +47,3 @@ Elixir library that parses USB HID report descriptors (HID 1.11 spec) into struc
 ## Reference
 
 - `notes.md` — HID spec links and the `usbhid-dump`/`hidrd` capture workflow.
-- `hids/` — sample Cherry keyboard descriptor dump (`cherry_keyboard.hid.{bin,spec,c}`) used for manual testing.
